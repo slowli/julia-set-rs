@@ -13,7 +13,7 @@ pub struct Cpu;
 
 impl Backend for Cpu {
     type Error = anyhow::Error;
-    type Program = Program;
+    type Program = Program<Function>;
 
     fn create_program(&self, function: &Function) -> Result<Self::Program, Self::Error> {
         Ok(Program::new(function.to_owned()))
@@ -91,25 +91,22 @@ impl CpuParams {
     }
 }
 
-#[derive(Debug)]
-pub struct Program {
-    function: Function,
+pub trait ComputePoint {
+    fn compute_point(&self, z: Complex32) -> Complex32;
 }
 
-impl Program {
-    fn new(function: Function) -> Self {
+#[derive(Debug)]
+pub struct Program<F> {
+    function: F,
+}
+
+impl<F> Program<F>
+where
+    Self: ComputePoint,
+    F: Sync,
+{
+    pub fn new(function: F) -> Self {
         Self { function }
-    }
-
-    fn compute(&self, z: Complex32) -> Complex32 {
-        let mut variables = HashMap::new();
-        variables.insert("z", z);
-
-        for (var_name, expr) in self.function.assignments() {
-            let expr = eval(expr, &variables);
-            variables.insert(var_name, expr);
-        }
-        eval(self.function.return_value(), &variables)
     }
 
     fn compute_row(&self, params: CpuParams, pixel_row: u32) -> Vec<u8> {
@@ -120,7 +117,7 @@ impl Program {
             let mut iter = MAX_ITERATIONS;
 
             for i in 0..MAX_ITERATIONS {
-                z = self.compute(z);
+                z = self.compute_point(z);
                 if z.is_nan() || z.is_infinite() || z.norm_sqr() > params.inf_distance_sq {
                     iter = i;
                     break;
@@ -134,7 +131,7 @@ impl Program {
         pixels.collect()
     }
 
-    fn render(&self, params: &Params) -> ImageBuffer {
+    pub fn render(&self, params: &Params) -> ImageBuffer {
         let [width, height] = params.image_size;
         let pixel_size = (width * height) as usize;
         let params = CpuParams::new(params);
@@ -152,6 +149,25 @@ impl Program {
             .flatten()
             .collect();
         ImageBuffer::from_raw(width, height, buffer).unwrap()
+    }
+}
+
+impl ComputePoint for Program<Function> {
+    fn compute_point(&self, z: Complex32) -> Complex32 {
+        let mut variables = HashMap::new();
+        variables.insert("z", z);
+
+        for (var_name, expr) in self.function.assignments() {
+            let expr = eval(expr, &variables);
+            variables.insert(var_name, expr);
+        }
+        eval(self.function.return_value(), &variables)
+    }
+}
+
+impl<F: Fn(Complex32) -> Complex32> ComputePoint for Program<F> {
+    fn compute_point(&self, z: Complex32) -> Complex32 {
+        (self.function)(z)
     }
 }
 
@@ -184,19 +200,19 @@ mod tests {
     fn compute() {
         let program = Program::new(Function::new("z * z + 0.5i").unwrap());
         assert_eq!(
-            program.compute(Complex32::new(0.0, 0.0)),
+            program.compute_point(Complex32::new(0.0, 0.0)),
             Complex32::new(0.0, 0.5)
         );
         assert_eq!(
-            program.compute(Complex32::new(1.0, 0.0)),
+            program.compute_point(Complex32::new(1.0, 0.0)),
             Complex32::new(1.0, 0.5)
         );
         assert_eq!(
-            program.compute(Complex32::new(-1.0, 0.0)),
+            program.compute_point(Complex32::new(-1.0, 0.0)),
             Complex32::new(1.0, 0.5)
         );
         assert_eq!(
-            program.compute(Complex32::new(0.0, 1.0)),
+            program.compute_point(Complex32::new(0.0, 1.0)),
             Complex32::new(-1.0, 0.5)
         );
     }
@@ -204,7 +220,7 @@ mod tests {
     #[test]
     fn compute_does_not_panic() {
         let program = Program::new(Function::new("1.0 / z + 0.5i").unwrap());
-        let z = program.compute(Complex32::new(0.0, 0.0));
+        let z = program.compute_point(Complex32::new(0.0, 0.0));
         assert!(z.is_nan());
     }
 }
