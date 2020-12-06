@@ -6,10 +6,8 @@ use num_complex::Complex32;
 use thiserror::Error;
 
 use std::{
-    collections::HashSet,
-    fmt,
-    iter::{self, FromIterator},
-    mem, ops,
+    collections::{HashMap, HashSet},
+    fmt, iter, mem, ops,
 };
 
 #[derive(Debug)]
@@ -49,6 +47,8 @@ pub enum EvalError {
     UndefinedVar,
     #[error("Undefined function")]
     UndefinedFn,
+    #[error("Function call has bogus arity")]
+    FnArity,
     #[error("Unsupported language construct")]
     Unsupported,
 }
@@ -218,14 +218,19 @@ impl Parse for FnGrammar {
 #[derive(Debug)]
 pub struct Context {
     variables: HashSet<String>,
-    functions: HashSet<String>,
+    functions: HashMap<String, usize>,
 }
 
 impl Context {
-    pub(crate) fn new(builtin_functions: &[&str], arg_name: &str) -> Self {
+    pub(crate) fn new<'a>(
+        builtin_functions: impl Iterator<Item = (&'a str, usize)>,
+        arg_name: &str,
+    ) -> Self {
         Self {
-            variables: HashSet::from_iter(iter::once(arg_name.to_owned())),
-            functions: HashSet::from_iter(builtin_functions.iter().copied().map(str::to_owned)),
+            variables: iter::once(arg_name.to_owned()).collect(),
+            functions: builtin_functions
+                .map(|(name, arity)| (name.to_owned(), arity))
+                .collect(),
         }
     }
 
@@ -307,8 +312,14 @@ impl Context {
 
             Expr::Function { name, args } => {
                 let fn_name = *name.fragment();
-                if !self.functions.contains(fn_name) {
+                let arity = if let Some(arity) = self.functions.get(fn_name) {
+                    *arity
+                } else {
                     return Err(FnError::eval(name, EvalError::UndefinedFn));
+                };
+
+                if args.len() != arity {
+                    return Err(FnError::eval(expr, EvalError::FnArity));
                 }
 
                 let arg_values = args.iter().map(|arg| self.eval_expr(arg));
@@ -327,6 +338,10 @@ impl Context {
     }
 }
 
+const FUNCTIONS: &[&str] = &[
+    "arg", "sqrt", "exp", "sinh", "cosh", "tanh", "asinh", "acosh", "atanh",
+];
+
 #[derive(Debug, Clone)]
 pub struct Function {
     assignments: Vec<(String, Evaluated)>,
@@ -336,7 +351,8 @@ impl Function {
     pub fn new(body: &str) -> Result<Self, FnError> {
         let statements = FnGrammar::parse_statements(body).map_err(FnError::parse)?;
         let body_span = Spanned::from_str(body, ..);
-        Context::new(&["sinh", "cosh"], "z").process(&statements, body_span)
+        let builtin_functions = FUNCTIONS.iter().copied().map(|name| (name, 1));
+        Context::new(builtin_functions, "z").process(&statements, body_span)
     }
 
     pub fn assignments(&self) -> impl Iterator<Item = (&str, &Evaluated)> + '_ {

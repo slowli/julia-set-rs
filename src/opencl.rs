@@ -6,7 +6,7 @@ use ocl::{
 
 use std::sync::Mutex;
 
-use crate::{compiler::Compiler, Backend, Function, ImageBuffer, Render, Params};
+use crate::{compiler::Compiler, Backend, Function, ImageBuffer, Params, Render};
 
 const PROGRAM: &str = include_str!("program.cl");
 

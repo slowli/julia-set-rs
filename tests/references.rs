@@ -31,7 +31,7 @@ fn compare_to_reference(reference_filename: &str, image: &ImageBuffer) {
         let image_diff = ImageDiff::new(reference_image, &image);
         println!("{}: {:?}", reference_filename, image_diff);
         image_diff.assert_is_sound();
-    } else if env::args().nth(1).as_deref() == Some("--snapshot") {
+    } else if let Ok("1") = env::var("SNAPSHOT_UPDATE").as_deref() {
         // Store the reference image.
         image
             .save(&reference_path)
@@ -51,7 +51,7 @@ struct ImageDiff {
 
 impl ImageDiff {
     const MAX_DIFFERING_PIXELS: f32 = 0.02;
-    const MAX_MEAN_DIFFERENCE: f32 = 0.1;
+    const MAX_MEAN_DIFFERENCE: f32 = 0.5;
 
     fn pixel_quantity(image: &ImageBuffer, quantity: u32) -> f32 {
         let pixel_count = image.width() * image.height();
@@ -129,6 +129,217 @@ mod cubic {
     #[cfg(feature = "cpu_backend")]
     fn cpu_backend_with_native_function() {
         let image = generate_image::<_, julia_set::Cpu>(|z| z * z * z - 0.39, &render_params());
+        compare_to_reference(SNAPSHOT_FILENAME, &image);
+    }
+
+    #[test]
+    #[cfg(feature = "opencl_backend")]
+    fn vulkan_backend() {
+        let image = generate_image::<_, julia_set::Vulkan>(&create_function(), &render_params());
+        compare_to_reference(SNAPSHOT_FILENAME, &image);
+    }
+
+    #[test]
+    #[cfg(feature = "vulkan_backend")]
+    fn opencl_backend() {
+        let image = generate_image::<_, julia_set::OpenCl>(&create_function(), &render_params());
+        compare_to_reference(SNAPSHOT_FILENAME, &image);
+    }
+}
+
+mod exp {
+    use super::*;
+    use num_complex::Complex32;
+
+    #[cfg(any(
+        feature = "dyn_cpu_backend",
+        feature = "opencl_backend",
+        feature = "vulkan_backend"
+    ))]
+    fn create_function() -> julia_set::Function {
+        julia_set::Function::new("exp(z ^ -4) + 0.15i").unwrap()
+    }
+
+    const SNAPSHOT_FILENAME: &str = "exp.png";
+
+    fn render_params() -> Params {
+        Params::new([360, 360], 4.0).with_infinity_distance(9.0)
+    }
+
+    #[test]
+    #[cfg(feature = "dyn_cpu_backend")]
+    fn cpu_backend() {
+        let image = generate_image::<_, julia_set::Cpu>(&create_function(), &render_params());
+        compare_to_reference(SNAPSHOT_FILENAME, &image);
+    }
+
+    #[test]
+    #[cfg(feature = "cpu_backend")]
+    fn cpu_backend_with_native_function() {
+        let image = generate_image::<_, julia_set::Cpu>(
+            |z: Complex32| z.powi(-4).exp() + Complex32::new(0.0, 0.15),
+            &render_params(),
+        );
+        compare_to_reference(SNAPSHOT_FILENAME, &image);
+    }
+
+    #[test]
+    #[cfg(feature = "opencl_backend")]
+    fn vulkan_backend() {
+        let image = generate_image::<_, julia_set::Vulkan>(&create_function(), &render_params());
+        compare_to_reference(SNAPSHOT_FILENAME, &image);
+    }
+
+    #[test]
+    #[cfg(feature = "vulkan_backend")]
+    fn opencl_backend() {
+        let image = generate_image::<_, julia_set::OpenCl>(&create_function(), &render_params());
+        compare_to_reference(SNAPSHOT_FILENAME, &image);
+    }
+}
+
+mod flower {
+    use super::*;
+    use num_complex::Complex32;
+
+    #[cfg(any(
+        feature = "dyn_cpu_backend",
+        feature = "opencl_backend",
+        feature = "vulkan_backend"
+    ))]
+    fn create_function() -> julia_set::Function {
+        julia_set::Function::new("0.8*z + z/atanh(z^-4)").unwrap()
+    }
+
+    const SNAPSHOT_FILENAME: &str = "flower.png";
+
+    fn render_params() -> Params {
+        Params::new([360, 360], 2.0).with_infinity_distance(10.0)
+    }
+
+    #[test]
+    #[cfg(feature = "dyn_cpu_backend")]
+    fn cpu_backend() {
+        let image = generate_image::<_, julia_set::Cpu>(&create_function(), &render_params());
+        compare_to_reference(SNAPSHOT_FILENAME, &image);
+    }
+
+    #[test]
+    #[cfg(feature = "cpu_backend")]
+    fn cpu_backend_with_native_function() {
+        let image = generate_image::<_, julia_set::Cpu>(
+            |z: Complex32| z * 0.8 + z / z.powi(-4).atanh(),
+            &render_params(),
+        );
+        compare_to_reference(SNAPSHOT_FILENAME, &image);
+    }
+
+    #[test]
+    #[cfg(feature = "opencl_backend")]
+    fn vulkan_backend() {
+        let image = generate_image::<_, julia_set::Vulkan>(&create_function(), &render_params());
+        compare_to_reference(SNAPSHOT_FILENAME, &image);
+    }
+
+    #[test]
+    #[cfg(feature = "vulkan_backend")]
+    fn opencl_backend() {
+        let image = generate_image::<_, julia_set::OpenCl>(&create_function(), &render_params());
+        compare_to_reference(SNAPSHOT_FILENAME, &image);
+    }
+}
+
+mod hills {
+    use super::*;
+    use num_complex::Complex32;
+
+    #[cfg(any(
+        feature = "dyn_cpu_backend",
+        feature = "opencl_backend",
+        feature = "vulkan_backend"
+    ))]
+    fn create_function() -> julia_set::Function {
+        julia_set::Function::new("1i * acosh(cosh(1i * z) - arg(z)^-2) - 0.05 + 0.05i").unwrap()
+    }
+
+    const SNAPSHOT_FILENAME: &str = "hills.png";
+
+    fn render_params() -> Params {
+        Params::new([360, 360], 8.0)
+            .with_view_center([-9.41, 0.0])
+            .with_infinity_distance(5.0)
+    }
+
+    #[test]
+    #[cfg(feature = "dyn_cpu_backend")]
+    fn cpu_backend() {
+        let image = generate_image::<_, julia_set::Cpu>(&create_function(), &render_params());
+        compare_to_reference(SNAPSHOT_FILENAME, &image);
+    }
+
+    #[test]
+    #[cfg(feature = "cpu_backend")]
+    fn cpu_backend_with_native_function() {
+        let image = generate_image::<_, julia_set::Cpu>(
+            |z: Complex32| {
+                Complex32::i() * ((Complex32::i() * z).cosh() - z.arg().powi(-2)).acosh()
+                    + Complex32::new(-0.05, 0.05)
+            },
+            &render_params(),
+        );
+        compare_to_reference(SNAPSHOT_FILENAME, &image);
+    }
+
+    #[test]
+    #[cfg(feature = "opencl_backend")]
+    fn vulkan_backend() {
+        let image = generate_image::<_, julia_set::Vulkan>(&create_function(), &render_params());
+        compare_to_reference(SNAPSHOT_FILENAME, &image);
+    }
+
+    #[test]
+    #[cfg(feature = "vulkan_backend")]
+    fn opencl_backend() {
+        let image = generate_image::<_, julia_set::OpenCl>(&create_function(), &render_params());
+        compare_to_reference(SNAPSHOT_FILENAME, &image);
+    }
+}
+
+mod spiral {
+    use super::*;
+    use num_complex::Complex32;
+
+    #[cfg(any(
+        feature = "dyn_cpu_backend",
+        feature = "opencl_backend",
+        feature = "vulkan_backend"
+    ))]
+    fn create_function() -> julia_set::Function {
+        julia_set::Function::new("z + tanh(sqrt(z)) - 0.18 + 0.5i").unwrap()
+    }
+
+    const SNAPSHOT_FILENAME: &str = "spiral.png";
+
+    fn render_params() -> Params {
+        Params::new([360, 360], 2.3)
+            .with_view_center([-6.84, 1.15])
+            .with_infinity_distance(9.0)
+    }
+
+    #[test]
+    #[cfg(feature = "dyn_cpu_backend")]
+    fn cpu_backend() {
+        let image = generate_image::<_, julia_set::Cpu>(&create_function(), &render_params());
+        compare_to_reference(SNAPSHOT_FILENAME, &image);
+    }
+
+    #[test]
+    #[cfg(feature = "cpu_backend")]
+    fn cpu_backend_with_native_function() {
+        let image = generate_image::<_, julia_set::Cpu>(
+            |z: Complex32| z + z.sqrt().tanh() + Complex32::new(-0.18, 0.5),
+            &render_params(),
+        );
         compare_to_reference(SNAPSHOT_FILENAME, &image);
     }
 

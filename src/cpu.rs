@@ -177,7 +177,25 @@ mod dynamic {
                     _ => unreachable!(),
                 }
             }
-            Evaluated::FunctionCall { .. } => unimplemented!(),
+            Evaluated::FunctionCall { name, args } => {
+                let evaluated_args: Vec<_> = args.iter().map(|arg| eval(arg, variables)).collect();
+                eval_fn(name, &evaluated_args)
+            }
+        }
+    }
+
+    fn eval_fn(name: &str, args: &[Complex32]) -> Complex32 {
+        match name {
+            "arg" => Complex32::new(args[0].arg(), 0.0),
+            "sqrt" => args[0].sqrt(),
+            "exp" => args[0].exp(),
+            "sinh" => args[0].sinh(),
+            "cosh" => args[0].cosh(),
+            "tanh" => args[0].tanh(),
+            "asinh" => args[0].asinh(),
+            "acosh" => args[0].acosh(),
+            "atanh" => args[0].atanh(),
+            _ => unreachable!("Checked during compilation"),
         }
     }
 
