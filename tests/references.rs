@@ -6,6 +6,8 @@ use std::{env, io, path::Path};
 
 use julia_set::{Backend, ImageBuffer, Params, Render};
 
+const IMAGE_SIZE: [u32; 2] = [360, 360];
+
 fn generate_image<F, B: Backend<F>>(function: F, params: &Params) -> ImageBuffer {
     B::create_program(function).unwrap().render(params).unwrap()
 }
@@ -50,8 +52,8 @@ struct ImageDiff {
 }
 
 impl ImageDiff {
-    const MAX_DIFFERING_PIXELS: f32 = 0.02;
-    const MAX_MEAN_DIFFERENCE: f32 = 0.5;
+    const MAX_DIFFERING_PIXELS: f32 = 0.1;
+    const MAX_MEAN_DIFFERENCE: f32 = 2.0;
 
     fn pixel_quantity(image: &ImageBuffer, quantity: u32) -> f32 {
         let pixel_count = image.width() * image.height();
@@ -115,7 +117,7 @@ mod cubic {
     const SNAPSHOT_FILENAME: &str = "cubic.png";
 
     fn render_params() -> Params {
-        Params::new([360, 360], 2.5).with_infinity_distance(2.5)
+        Params::new(IMAGE_SIZE, 2.5).with_infinity_distance(2.5)
     }
 
     #[test]
@@ -133,14 +135,14 @@ mod cubic {
     }
 
     #[test]
-    #[cfg(feature = "opencl_backend")]
+    #[cfg(feature = "vulkan_backend")]
     fn vulkan_backend() {
         let image = generate_image::<_, julia_set::Vulkan>(&create_function(), &render_params());
         compare_to_reference(SNAPSHOT_FILENAME, &image);
     }
 
     #[test]
-    #[cfg(feature = "vulkan_backend")]
+    #[cfg(feature = "opencl_backend")]
     fn opencl_backend() {
         let image = generate_image::<_, julia_set::OpenCl>(&create_function(), &render_params());
         compare_to_reference(SNAPSHOT_FILENAME, &image);
@@ -163,7 +165,7 @@ mod exp {
     const SNAPSHOT_FILENAME: &str = "exp.png";
 
     fn render_params() -> Params {
-        Params::new([360, 360], 4.0).with_infinity_distance(9.0)
+        Params::new(IMAGE_SIZE, 4.0).with_infinity_distance(9.0)
     }
 
     #[test]
@@ -184,14 +186,14 @@ mod exp {
     }
 
     #[test]
-    #[cfg(feature = "opencl_backend")]
+    #[cfg(feature = "vulkan_backend")]
     fn vulkan_backend() {
         let image = generate_image::<_, julia_set::Vulkan>(&create_function(), &render_params());
         compare_to_reference(SNAPSHOT_FILENAME, &image);
     }
 
     #[test]
-    #[cfg(feature = "vulkan_backend")]
+    #[cfg(feature = "opencl_backend")]
     fn opencl_backend() {
         let image = generate_image::<_, julia_set::OpenCl>(&create_function(), &render_params());
         compare_to_reference(SNAPSHOT_FILENAME, &image);
@@ -214,7 +216,7 @@ mod flower {
     const SNAPSHOT_FILENAME: &str = "flower.png";
 
     fn render_params() -> Params {
-        Params::new([360, 360], 2.0).with_infinity_distance(10.0)
+        Params::new(IMAGE_SIZE, 2.0).with_infinity_distance(10.0)
     }
 
     #[test]
@@ -235,14 +237,14 @@ mod flower {
     }
 
     #[test]
-    #[cfg(feature = "opencl_backend")]
+    #[cfg(feature = "vulkan_backend")]
     fn vulkan_backend() {
         let image = generate_image::<_, julia_set::Vulkan>(&create_function(), &render_params());
         compare_to_reference(SNAPSHOT_FILENAME, &image);
     }
 
     #[test]
-    #[cfg(feature = "vulkan_backend")]
+    #[cfg(feature = "opencl_backend")]
     fn opencl_backend() {
         let image = generate_image::<_, julia_set::OpenCl>(&create_function(), &render_params());
         compare_to_reference(SNAPSHOT_FILENAME, &image);
@@ -265,7 +267,7 @@ mod hills {
     const SNAPSHOT_FILENAME: &str = "hills.png";
 
     fn render_params() -> Params {
-        Params::new([360, 360], 8.0)
+        Params::new(IMAGE_SIZE, 8.0)
             .with_view_center([-9.41, 0.0])
             .with_infinity_distance(5.0)
     }
@@ -291,14 +293,14 @@ mod hills {
     }
 
     #[test]
-    #[cfg(feature = "opencl_backend")]
+    #[cfg(feature = "vulkan_backend")]
     fn vulkan_backend() {
         let image = generate_image::<_, julia_set::Vulkan>(&create_function(), &render_params());
         compare_to_reference(SNAPSHOT_FILENAME, &image);
     }
 
     #[test]
-    #[cfg(feature = "vulkan_backend")]
+    #[cfg(feature = "opencl_backend")]
     fn opencl_backend() {
         let image = generate_image::<_, julia_set::OpenCl>(&create_function(), &render_params());
         compare_to_reference(SNAPSHOT_FILENAME, &image);
@@ -321,7 +323,7 @@ mod spiral {
     const SNAPSHOT_FILENAME: &str = "spiral.png";
 
     fn render_params() -> Params {
-        Params::new([360, 360], 2.3)
+        Params::new(IMAGE_SIZE, 2.3)
             .with_view_center([-6.84, 1.15])
             .with_infinity_distance(9.0)
     }
@@ -344,14 +346,14 @@ mod spiral {
     }
 
     #[test]
-    #[cfg(feature = "opencl_backend")]
+    #[cfg(feature = "vulkan_backend")]
     fn vulkan_backend() {
         let image = generate_image::<_, julia_set::Vulkan>(&create_function(), &render_params());
         compare_to_reference(SNAPSHOT_FILENAME, &image);
     }
 
     #[test]
-    #[cfg(feature = "vulkan_backend")]
+    #[cfg(feature = "opencl_backend")]
     fn opencl_backend() {
         let image = generate_image::<_, julia_set::OpenCl>(&create_function(), &render_params());
         compare_to_reference(SNAPSHOT_FILENAME, &image);
