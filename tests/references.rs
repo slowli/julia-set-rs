@@ -4,14 +4,10 @@ use image::{DynamicImage, ImageError};
 
 use std::{env, io, path::Path};
 
-use julia_set::{Backend, Function, ImageBuffer, JuliaSet, Params};
+use julia_set::{Backend, ImageBuffer, Params, Render};
 
-fn generate_image<B: Backend>(function: &str, params: &Params) -> ImageBuffer {
-    let function = Function::new(function).unwrap();
-    JuliaSet::<B>::new(&function)
-        .unwrap()
-        .render(params)
-        .unwrap()
+fn generate_image<F, B: Backend<F>>(function: F, params: &Params) -> ImageBuffer {
+    B::create_program(function).unwrap().render(params).unwrap()
 }
 
 fn compare_to_reference(reference_filename: &str, image: &ImageBuffer) {
@@ -107,7 +103,15 @@ impl ImageDiff {
 mod cubic {
     use super::*;
 
-    const CUBIC_FUNCTION: &str = "z * z * z - 0.39";
+    #[cfg(any(
+        feature = "dyn_cpu_backend",
+        feature = "opencl_backend",
+        feature = "vulkan_backend"
+    ))]
+    fn create_function() -> julia_set::Function {
+        julia_set::Function::new("z * z * z - 0.39").unwrap()
+    }
+
     const SNAPSHOT_FILENAME: &str = "cubic.png";
 
     fn render_params() -> Params {
@@ -115,30 +119,30 @@ mod cubic {
     }
 
     #[test]
-    #[cfg(feature = "cpu_backend")]
+    #[cfg(feature = "dyn_cpu_backend")]
     fn cpu_backend() {
-        let image = generate_image::<julia_set::Cpu>(CUBIC_FUNCTION, &render_params());
+        let image = generate_image::<_, julia_set::Cpu>(&create_function(), &render_params());
         compare_to_reference(SNAPSHOT_FILENAME, &image);
     }
 
     #[test]
     #[cfg(feature = "cpu_backend")]
     fn cpu_backend_with_native_function() {
-        let image = julia_set::CpuProgram::new(|z| z * z * z - 0.39).render(&render_params());
+        let image = generate_image::<_, julia_set::Cpu>(|z| z * z * z - 0.39, &render_params());
         compare_to_reference(SNAPSHOT_FILENAME, &image);
     }
 
     #[test]
     #[cfg(feature = "opencl_backend")]
     fn vulkan_backend() {
-        let image = generate_image::<julia_set::Vulkan>(CUBIC_FUNCTION, &render_params());
+        let image = generate_image::<_, julia_set::Vulkan>(&create_function(), &render_params());
         compare_to_reference(SNAPSHOT_FILENAME, &image);
     }
 
     #[test]
     #[cfg(feature = "vulkan_backend")]
     fn opencl_backend() {
-        let image = generate_image::<julia_set::OpenCl>(CUBIC_FUNCTION, &render_params());
+        let image = generate_image::<_, julia_set::OpenCl>(&create_function(), &render_params());
         compare_to_reference(SNAPSHOT_FILENAME, &image);
     }
 }

@@ -6,10 +6,11 @@ edition = "2018"
 
 [dependencies]
 anyhow = "1.0.28"
-arithmetic-parser = { version = "0.2.0", features = ["num-complex"] }
 image = "0.23.12"
 num-complex = "0.3.1"
 thiserror = "1.0.14"
+
+arithmetic-parser = { version = "0.2.0", features = ["num-complex"], optional = true }
 
 # OpenCL backend
 ocl = { version = "0.19.3", optional = true }
@@ -23,9 +24,14 @@ vulkano = { version = "0.19.0", optional = true }
 rayon = { version = "1.3.0", optional = true }
 
 [features]
-vulkan_backend = ["shaderc", "vulkano"]
-opencl_backend = ["ocl", "lazy_static"]
+# Enables the Vulkan backend (GPU-based).
+vulkan_backend = ["arithmetic-parser", "shaderc", "vulkano"]
+# Enables the OpenCL backend (GPU-based).
+opencl_backend = ["arithmetic-parser", "ocl", "lazy_static"]
+# Enables the CPU backend with native functions.
 cpu_backend = ["rayon"]
+# Enables the CPU backend with support of dynamically defined functions.
+dyn_cpu_backend = ["cpu_backend", "arithmetic-parser"]
 
 [[test]]
 name = "references"

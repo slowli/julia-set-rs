@@ -6,33 +6,29 @@ use ocl::{
 
 use std::sync::Mutex;
 
-use crate::{compiler::Compiler, Backend, Function, ImageBuffer, Params};
+use crate::{compiler::Compiler, Backend, Function, ImageBuffer, Render, Params};
 
 const PROGRAM: &str = include_str!("program.cl");
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct OpenCl;
 
-impl Backend for OpenCl {
+impl Backend<&Function> for OpenCl {
     type Error = ocl::Error;
-    type Program = Program;
+    type Program = OpenClProgram;
 
-    fn create_program(&self, function: &Function) -> Result<Self::Program, Self::Error> {
+    fn create_program(function: &Function) -> Result<Self::Program, Self::Error> {
         let compiled = Compiler::for_ocl().compile(function);
-        Program::new(compiled)
-    }
-
-    fn render(&self, program: &Program, params: &Params) -> Result<ImageBuffer, Self::Error> {
-        program.render(params)
+        OpenClProgram::new(compiled)
     }
 }
 
 #[derive(Debug)]
-pub struct Program {
+pub struct OpenClProgram {
     inner: ProQue,
 }
 
-impl Program {
+impl OpenClProgram {
     fn new(compiled: String) -> ocl::Result<Self> {
         let mut program_builder = ocl::Program::builder();
         let define = BuildOpt::IncludeDefine {
@@ -65,8 +61,12 @@ impl Program {
         );
         Ok(Self { inner })
     }
+}
 
-    fn render(&self, params: &Params) -> ocl::Result<ImageBuffer> {
+impl Render for OpenClProgram {
+    type Error = ocl::Error;
+
+    fn render(&self, params: &Params) -> Result<ImageBuffer, Self::Error> {
         let pixels = params.image_size[0]
             .checked_mul(params.image_size[1])
             .expect("Overflow in image dimensions");

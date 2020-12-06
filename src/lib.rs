@@ -1,13 +1,15 @@
 #![warn(missing_debug_implementations)]
 
-pub use crate::function::{EvalError, Evaluated, FnError, Function};
-
 use std::fmt;
 
-#[cfg(any(test, feature = "opencl_backend", feature = "vulkan_backend"))]
+#[cfg(feature = "arithmetic-parser")]
+pub use crate::function::{EvalError, Evaluated, FnError, Function};
+
+#[cfg(feature = "arithmetic-parser")]
 mod compiler;
 #[cfg(feature = "cpu_backend")]
 mod cpu;
+#[cfg(feature = "arithmetic-parser")]
 mod function;
 #[cfg(feature = "opencl_backend")]
 mod opencl;
@@ -23,13 +25,16 @@ pub use crate::vulkan::Vulkan;
 
 pub type ImageBuffer = image::GrayImage;
 
-pub trait Backend: Default {
+pub trait Backend<In>: Default {
     type Error: fmt::Debug;
-    type Program;
+    type Program: Render;
 
-    fn create_program(&self, function: &Function) -> Result<Self::Program, Self::Error>;
+    fn create_program(function: In) -> Result<Self::Program, Self::Error>;
+}
 
-    fn render(&self, program: &Self::Program, params: &Params) -> Result<ImageBuffer, Self::Error>;
+pub trait Render {
+    type Error: fmt::Debug;
+    fn render(&self, params: &Params) -> Result<ImageBuffer, Self::Error>;
 }
 
 #[derive(Debug, Clone)]
@@ -65,25 +70,7 @@ impl Params {
         self
     }
 
-    #[cfg(any(feature = "opencl_backend", feature = "vulkan_backend"))]
     pub(crate) fn view_width(&self) -> f32 {
         self.view_height * (self.image_size[0] as f32) / (self.image_size[1] as f32)
-    }
-}
-
-#[derive(Debug)]
-pub struct JuliaSet<B: Backend> {
-    program: B::Program,
-}
-
-impl<B: Backend> JuliaSet<B> {
-    pub fn new(function: &Function) -> Result<Self, B::Error> {
-        let backend = B::default();
-        let program = backend.create_program(function)?;
-        Ok(Self { program })
-    }
-
-    pub fn render(&self, params: &Params) -> Result<ImageBuffer, B::Error> {
-        B::default().render(&self.program, params)
     }
 }

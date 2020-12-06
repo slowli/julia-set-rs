@@ -24,7 +24,7 @@ use vulkano::{
 
 use std::{ffi::CStr, iter, sync::Arc};
 
-use crate::{compiler::Compiler, Backend, Function, ImageBuffer, Params};
+use crate::{compiler::Compiler, Backend, Function, ImageBuffer, Params, Render};
 
 const PROGRAM: &str = include_str!("program.glsl");
 
@@ -117,29 +117,25 @@ struct VulkanParams {
 #[derive(Debug, Clone, Default)]
 pub struct Vulkan;
 
-impl Backend for Vulkan {
+impl Backend<&Function> for Vulkan {
     type Error = anyhow::Error;
-    type Program = Program;
+    type Program = VulkanProgram;
 
-    fn create_program(&self, function: &Function) -> Result<Self::Program, Self::Error> {
+    fn create_program(function: &Function) -> Result<Self::Program, Self::Error> {
         let compiled = Compiler::for_gl().compile(function);
-        Program::new(&compiled)
-    }
-
-    fn render(&self, program: &Self::Program, params: &Params) -> Result<ImageBuffer, Self::Error> {
-        program.render(params)
+        VulkanProgram::new(&compiled)
     }
 }
 
 #[derive(Debug)]
-pub struct Program {
+pub struct VulkanProgram {
     device: Arc<Device>,
     queue: Arc<Queue>,
     pipeline: Arc<ComputePipeline<PipelineLayout<Layout>>>,
     layout: Arc<UnsafeDescriptorSetLayout>,
 }
 
-impl Program {
+impl VulkanProgram {
     fn new(compiled_function: &str) -> anyhow::Result<Self> {
         let instance = Instance::new(None, &InstanceExtensions::none(), None)?;
         let device = PhysicalDevice::enumerate(&instance)
@@ -182,6 +178,10 @@ impl Program {
             layout,
         })
     }
+}
+
+impl Render for VulkanProgram {
+    type Error = anyhow::Error;
 
     fn render(&self, params: &Params) -> anyhow::Result<ImageBuffer> {
         // Bind uniforms: the output image and the rendering params.

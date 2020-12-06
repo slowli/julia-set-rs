@@ -1,47 +1,24 @@
 //! CPU backend for Julia set rendering.
 
-use arithmetic_parser::BinaryOp;
 use num_complex::Complex32;
 use rayon::prelude::*;
 
-use std::collections::HashMap;
+use std::convert::Infallible;
 
-use crate::{Backend, Evaluated, Function, ImageBuffer, Params};
+use crate::{Backend, ImageBuffer, Params, Render};
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Cpu;
 
-impl Backend for Cpu {
-    type Error = anyhow::Error;
-    type Program = CpuProgram<Function>;
+impl<F: Sync> Backend<F> for Cpu
+where
+    CpuProgram<F>: ComputePoint,
+{
+    type Error = Infallible;
+    type Program = CpuProgram<F>;
 
-    fn create_program(&self, function: &Function) -> Result<Self::Program, Self::Error> {
-        Ok(CpuProgram::new(function.to_owned()))
-    }
-
-    fn render(&self, program: &Self::Program, params: &Params) -> Result<ImageBuffer, Self::Error> {
-        Ok(program.render(params))
-    }
-}
-
-fn eval(expr: &Evaluated, variables: &HashMap<&str, Complex32>) -> Complex32 {
-    match expr {
-        Evaluated::Variable(s) => variables[s.as_str()],
-        Evaluated::Value(val) => *val,
-        Evaluated::Negation(inner) => -eval(inner, variables),
-        Evaluated::Binary { op, lhs, rhs } => {
-            let lhs_value = eval(lhs, variables);
-            let rhs_value = eval(rhs, variables);
-            match op {
-                BinaryOp::Add => lhs_value + rhs_value,
-                BinaryOp::Sub => lhs_value - rhs_value,
-                BinaryOp::Mul => lhs_value * rhs_value,
-                BinaryOp::Div => lhs_value / rhs_value,
-                BinaryOp::Power => lhs_value.powc(rhs_value),
-                _ => unreachable!(),
-            }
-        }
-        Evaluated::FunctionCall { .. } => unimplemented!(),
+    fn create_program(function: F) -> Result<Self::Program, Self::Error> {
+        Ok(CpuProgram::new(function))
     }
 }
 
@@ -100,10 +77,9 @@ pub struct CpuProgram<F> {
     function: F,
 }
 
-impl<F> CpuProgram<F>
+impl<F: Sync> CpuProgram<F>
 where
     Self: ComputePoint,
-    F: Sync,
 {
     pub fn new(function: F) -> Self {
         Self { function }
@@ -130,8 +106,21 @@ where
         });
         pixels.collect()
     }
+}
 
-    pub fn render(&self, params: &Params) -> ImageBuffer {
+impl<F: Fn(Complex32) -> Complex32> ComputePoint for CpuProgram<F> {
+    fn compute_point(&self, z: Complex32) -> Complex32 {
+        (self.function)(z)
+    }
+}
+
+impl<F: Sync> Render for CpuProgram<F>
+where
+    Self: ComputePoint,
+{
+    type Error = Infallible;
+
+    fn render(&self, params: &Params) -> Result<ImageBuffer, Self::Error> {
         let [width, height] = params.image_size;
         let pixel_size = (width * height) as usize;
         let params = CpuParams::new(params);
@@ -148,26 +137,61 @@ where
             )
             .flatten()
             .collect();
-        ImageBuffer::from_raw(width, height, buffer).unwrap()
+        Ok(ImageBuffer::from_raw(width, height, buffer).unwrap())
     }
 }
 
-impl ComputePoint for CpuProgram<Function> {
-    fn compute_point(&self, z: Complex32) -> Complex32 {
-        let mut variables = HashMap::new();
-        variables.insert("z", z);
+#[cfg(feature = "dyn_cpu_backend")]
+mod dynamic {
+    use arithmetic_parser::BinaryOp;
+    use num_complex::Complex32;
 
-        for (var_name, expr) in self.function.assignments() {
-            let expr = eval(expr, &variables);
-            variables.insert(var_name, expr);
+    use std::{collections::HashMap, convert::Infallible};
+
+    use super::{ComputePoint, Cpu, CpuProgram};
+    use crate::{Backend, Evaluated, Function};
+
+    impl Backend<&Function> for Cpu {
+        type Error = Infallible;
+        type Program = CpuProgram<Function>;
+
+        fn create_program(function: &Function) -> Result<Self::Program, Self::Error> {
+            Ok(CpuProgram::new(function.to_owned()))
         }
-        eval(self.function.return_value(), &variables)
     }
-}
 
-impl<F: Fn(Complex32) -> Complex32> ComputePoint for CpuProgram<F> {
-    fn compute_point(&self, z: Complex32) -> Complex32 {
-        (self.function)(z)
+    fn eval(expr: &Evaluated, variables: &HashMap<&str, Complex32>) -> Complex32 {
+        match expr {
+            Evaluated::Variable(s) => variables[s.as_str()],
+            Evaluated::Value(val) => *val,
+            Evaluated::Negation(inner) => -eval(inner, variables),
+            Evaluated::Binary { op, lhs, rhs } => {
+                let lhs_value = eval(lhs, variables);
+                let rhs_value = eval(rhs, variables);
+                match op {
+                    BinaryOp::Add => lhs_value + rhs_value,
+                    BinaryOp::Sub => lhs_value - rhs_value,
+                    BinaryOp::Mul => lhs_value * rhs_value,
+                    BinaryOp::Div => lhs_value / rhs_value,
+                    BinaryOp::Power => lhs_value.powc(rhs_value),
+                    _ => unreachable!(),
+                }
+            }
+            Evaluated::FunctionCall { .. } => unimplemented!(),
+        }
+    }
+
+    impl ComputePoint for CpuProgram<Function> {
+        fn compute_point(&self, z: Complex32) -> Complex32 {
+            let mut variables = HashMap::new();
+            variables.insert("z", z);
+
+            for (var_name, expr) in self.function.assignments() {
+                let expr = eval(expr, &variables);
+                variables.insert(var_name, expr);
+            }
+            eval(self.function.return_value(), &variables)
+        }
     }
 }
 
@@ -197,7 +221,10 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "dyn_cpu_backend")]
     fn compute() {
+        use crate::Function;
+
         let program = CpuProgram::new(Function::new("z * z + 0.5i").unwrap());
         assert_eq!(
             program.compute_point(Complex32::new(0.0, 0.0)),
@@ -218,7 +245,10 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "dyn_cpu_backend")]
     fn compute_does_not_panic() {
+        use crate::Function;
+
         let program = CpuProgram::new(Function::new("1.0 / z + 0.5i").unwrap());
         let z = program.compute_point(Complex32::new(0.0, 0.0));
         assert!(z.is_nan());
