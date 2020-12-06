@@ -15,6 +15,7 @@ pub(crate) struct Compiler {
 }
 
 impl Compiler {
+    #[cfg(any(test, feature = "opencl_backend"))]
     pub fn for_ocl() -> Self {
         Self {
             complex_ty: "float2",
@@ -22,6 +23,7 @@ impl Compiler {
         }
     }
 
+    #[cfg(any(test, feature = "vulkan_backend"))]
     pub fn for_gl() -> Self {
         Self {
             complex_ty: "vec2",

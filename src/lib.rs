@@ -1,12 +1,25 @@
+#![warn(missing_debug_implementations)]
+
 pub use crate::function::{EvalError, Evaluated, FnError, Function};
 
 use std::fmt;
 
+#[cfg(any(test, feature = "opencl_backend", feature = "vulkan_backend"))]
 mod compiler;
-pub mod cpu;
+#[cfg(feature = "cpu_backend")]
+mod cpu;
 mod function;
-pub mod opencl;
-pub mod vulkan;
+#[cfg(feature = "opencl_backend")]
+mod opencl;
+#[cfg(feature = "vulkan_backend")]
+mod vulkan;
+
+#[cfg(feature = "cpu_backend")]
+pub use crate::cpu::{Cpu, CpuProgram};
+#[cfg(feature = "opencl_backend")]
+pub use crate::opencl::OpenCl;
+#[cfg(feature = "vulkan_backend")]
+pub use crate::vulkan::Vulkan;
 
 pub type ImageBuffer = image::GrayImage;
 
@@ -52,6 +65,7 @@ impl Params {
         self
     }
 
+    #[cfg(any(feature = "opencl_backend", feature = "vulkan_backend"))]
     pub(crate) fn view_width(&self) -> f32 {
         self.view_height * (self.image_size[0] as f32) / (self.image_size[1] as f32)
     }

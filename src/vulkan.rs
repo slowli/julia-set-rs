@@ -222,15 +222,15 @@ impl Program {
         )?;
 
         // Create the commands to render the image and copy it to the buffer.
-        let command_buffer = AutoCommandBufferBuilder::primary_one_time_submit(
+        let mut command_buffer = AutoCommandBufferBuilder::primary_one_time_submit(
             self.device.clone(),
             self.queue.family(),
         )?;
         let task_dimensions = [params.image_size[0], params.image_size[1], 1];
-        let command_buffer = command_buffer
+        command_buffer
             .dispatch(task_dimensions, self.pipeline.clone(), descriptor_set, ())?
-            .copy_image_to_buffer(image, image_buffer.clone())?
-            .build()?;
+            .copy_image_to_buffer(image, image_buffer.clone())?;
+        let command_buffer = command_buffer.build()?;
         let task = sync::now(self.device.clone())
             .then_execute(self.queue.clone(), command_buffer)?
             .then_signal_fence_and_flush()?;

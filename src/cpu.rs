@@ -13,10 +13,10 @@ pub struct Cpu;
 
 impl Backend for Cpu {
     type Error = anyhow::Error;
-    type Program = Program<Function>;
+    type Program = CpuProgram<Function>;
 
     fn create_program(&self, function: &Function) -> Result<Self::Program, Self::Error> {
-        Ok(Program::new(function.to_owned()))
+        Ok(CpuProgram::new(function.to_owned()))
     }
 
     fn render(&self, program: &Self::Program, params: &Params) -> Result<ImageBuffer, Self::Error> {
@@ -96,11 +96,11 @@ pub trait ComputePoint {
 }
 
 #[derive(Debug)]
-pub struct Program<F> {
+pub struct CpuProgram<F> {
     function: F,
 }
 
-impl<F> Program<F>
+impl<F> CpuProgram<F>
 where
     Self: ComputePoint,
     F: Sync,
@@ -152,7 +152,7 @@ where
     }
 }
 
-impl ComputePoint for Program<Function> {
+impl ComputePoint for CpuProgram<Function> {
     fn compute_point(&self, z: Complex32) -> Complex32 {
         let mut variables = HashMap::new();
         variables.insert("z", z);
@@ -165,7 +165,7 @@ impl ComputePoint for Program<Function> {
     }
 }
 
-impl<F: Fn(Complex32) -> Complex32> ComputePoint for Program<F> {
+impl<F: Fn(Complex32) -> Complex32> ComputePoint for CpuProgram<F> {
     fn compute_point(&self, z: Complex32) -> Complex32 {
         (self.function)(z)
     }
@@ -198,7 +198,7 @@ mod tests {
 
     #[test]
     fn compute() {
-        let program = Program::new(Function::new("z * z + 0.5i").unwrap());
+        let program = CpuProgram::new(Function::new("z * z + 0.5i").unwrap());
         assert_eq!(
             program.compute_point(Complex32::new(0.0, 0.0)),
             Complex32::new(0.0, 0.5)
@@ -219,7 +219,7 @@ mod tests {
 
     #[test]
     fn compute_does_not_panic() {
-        let program = Program::new(Function::new("1.0 / z + 0.5i").unwrap());
+        let program = CpuProgram::new(Function::new("1.0 / z + 0.5i").unwrap());
         let z = program.compute_point(Complex32::new(0.0, 0.0));
         assert!(z.is_nan());
     }

@@ -1,12 +1,6 @@
 use arithmetic_parser::{
-    BinaryOp, Block, Expr, Features, Grammar, GrammarExt, Lvalue, NomResult, Span, Spanned,
-    SpannedExpr, Statement, UnaryOp,
-};
-use nom::{
-    character::complete::one_of,
-    combinator::{map, opt},
-    number::complete::float,
-    sequence::tuple,
+    grammars::{Features, NumGrammar, Parse, Untyped},
+    BinaryOp, Block, Expr, Lvalue, Spanned, SpannedExpr, Statement, UnaryOp,
 };
 use num_complex::Complex32;
 use thiserror::Error;
@@ -28,7 +22,7 @@ pub struct FnError {
 
 #[derive(Debug)]
 pub enum ErrorSource {
-    Parse(arithmetic_parser::Error<'static>),
+    Parse(String),
     Eval(EvalError),
 }
 
@@ -55,8 +49,8 @@ pub enum EvalError {
     UndefinedVar,
     #[error("Undefined function")]
     UndefinedFn,
-    #[error("Boolean operations are not supported")]
-    BoolOp,
+    #[error("Unsupported language construct")]
+    Unsupported,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -77,10 +71,7 @@ pub enum Evaluated {
 
 impl Evaluated {
     fn is_commutative(op: BinaryOp) -> bool {
-        match op {
-            BinaryOp::Add | BinaryOp::Mul => true,
-            _ => false,
-        }
+        matches!(op, BinaryOp::Add | BinaryOp::Mul)
     }
 
     fn is_commutative_pair(op: BinaryOp, other_op: BinaryOp) -> bool {
@@ -182,21 +173,21 @@ impl ops::Neg for Evaluated {
 }
 
 impl FnError {
-    fn parse(source: Spanned<'_, arithmetic_parser::Error<'_>>) -> Self {
-        let column = source.get_column();
+    fn parse(source: arithmetic_parser::Error<'_>) -> Self {
+        let column = source.span().get_column();
         Self {
-            fragment: source.fragment.to_owned(),
-            line: source.line,
+            fragment: (*source.span().fragment()).to_owned(),
+            line: source.span().location_line(),
             column,
-            source: ErrorSource::Parse(source.extra.without_context()),
+            source: ErrorSource::Parse(source.kind().to_string()),
         }
     }
 
     fn eval<T>(span: &Spanned<'_, T>, source: EvalError) -> Self {
         let column = span.get_column();
         Self {
-            fragment: span.fragment.to_owned(),
-            line: span.line,
+            fragment: (*span.fragment()).to_owned(),
+            line: span.location_line(),
             column,
             source: ErrorSource::Eval(source),
         }
@@ -214,29 +205,14 @@ impl fmt::Display for FnError {
     }
 }
 
+type FnGrammarBase = Untyped<NumGrammar<Complex32>>;
+
 #[derive(Debug, Clone, Copy)]
 struct FnGrammar;
 
-impl Grammar for FnGrammar {
-    type Lit = Complex32;
-    type Type = ();
-
-    const FEATURES: Features = Features::none();
-
-    fn parse_literal(input: Span<'_>) -> NomResult<'_, Self::Lit> {
-        let parser = tuple((float, opt(one_of("ij"))));
-        map(parser, |(value, maybe_imag)| {
-            if maybe_imag.is_some() {
-                Complex32::new(0.0, value)
-            } else {
-                Complex32::new(value, 0.0)
-            }
-        })(input)
-    }
-
-    fn parse_type(_: Span<'_>) -> NomResult<'_, Self::Type> {
-        unreachable!("type hints are disabled in `FEATURES`")
-    }
+impl Parse for FnGrammar {
+    type Base = FnGrammarBase;
+    const FEATURES: Features = Features::empty();
 }
 
 #[derive(Debug)]
@@ -255,16 +231,16 @@ impl Context {
 
     fn process(
         &mut self,
-        block: &Block<'_, FnGrammar>,
-        total_span: Span<'_>,
+        block: &Block<'_, FnGrammarBase>,
+        total_span: Spanned<'_>,
     ) -> Result<Function, FnError> {
         let mut assignments = vec![];
         for statement in &block.statements {
             match &statement.extra {
                 Statement::Assignment { lhs, rhs } => {
                     let variable_name = match lhs.extra {
-                        Lvalue::Variable { .. } => lhs.fragment,
-                        Lvalue::Tuple(_) => unreachable!("Tuples are disabled in parser"),
+                        Lvalue::Variable { .. } => *lhs.fragment(),
+                        _ => unreachable!("Tuples are disabled in parser"),
                     };
 
                     if self.variables.contains(variable_name) {
@@ -281,6 +257,8 @@ impl Context {
                 Statement::Expr(_) => {
                     return Err(FnError::eval(&statement, EvalError::UselessExpr));
                 }
+
+                _ => return Err(FnError::eval(&statement, EvalError::Unsupported)),
             }
         }
 
@@ -294,20 +272,21 @@ impl Context {
         Ok(Function { assignments })
     }
 
-    fn eval_expr(&self, expr: &SpannedExpr<'_, FnGrammar>) -> Result<Evaluated, FnError> {
+    fn eval_expr(&self, expr: &SpannedExpr<'_, FnGrammarBase>) -> Result<Evaluated, FnError> {
         match &expr.extra {
             Expr::Variable => {
+                let var_name = *expr.fragment();
                 self.variables
-                    .get(expr.fragment)
+                    .get(var_name)
                     .ok_or_else(|| FnError::eval(expr, EvalError::UndefinedVar))?;
 
-                Ok(Evaluated::Variable(expr.fragment.to_owned()))
+                Ok(Evaluated::Variable(var_name.to_owned()))
             }
             Expr::Literal(lit) => Ok(Evaluated::Value(*lit)),
 
             Expr::Unary { op, inner } => match op.extra {
                 UnaryOp::Neg => Ok(-self.eval_expr(inner)?),
-                UnaryOp::Not => Err(FnError::eval(op, EvalError::BoolOp)),
+                _ => Err(FnError::eval(op, EvalError::Unsupported)),
             },
 
             Expr::Binary { lhs, op, rhs } => {
@@ -321,13 +300,13 @@ impl Context {
                     | BinaryOp::Div
                     | BinaryOp::Power => Evaluated::fold(op.extra, lhs_value, rhs_value),
                     _ => {
-                        return Err(FnError::eval(op, EvalError::BoolOp));
+                        return Err(FnError::eval(op, EvalError::Unsupported));
                     }
                 })
             }
 
             Expr::Function { name, args } => {
-                let fn_name = name.fragment;
+                let fn_name = *name.fragment();
                 if !self.functions.contains(fn_name) {
                     return Err(FnError::eval(name, EvalError::UndefinedFn));
                 }
@@ -342,6 +321,8 @@ impl Context {
             Expr::FnDefinition(_) | Expr::Block(_) | Expr::Tuple(_) | Expr::Method { .. } => {
                 unreachable!("Disabled in parser")
             }
+
+            _ => Err(FnError::eval(expr, EvalError::Unsupported)),
         }
     }
 }
@@ -353,8 +334,8 @@ pub struct Function {
 
 impl Function {
     pub fn new(body: &str) -> Result<Self, FnError> {
-        let body_span = Span::new(body);
-        let statements = FnGrammar::parse_statements(body_span).map_err(FnError::parse)?;
+        let statements = FnGrammar::parse_statements(body).map_err(FnError::parse)?;
+        let body_span = Spanned::from_str(body, ..);
         Context::new(&["sinh", "cosh"], "z").process(&statements, body_span)
     }
 

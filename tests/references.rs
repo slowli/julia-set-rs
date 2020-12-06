@@ -106,11 +106,6 @@ impl ImageDiff {
 
 mod cubic {
     use super::*;
-    use julia_set::{
-        cpu::{Cpu, Program},
-        opencl::OpenCl,
-        vulkan::Vulkan,
-    };
 
     const CUBIC_FUNCTION: &str = "z * z * z - 0.39";
     const SNAPSHOT_FILENAME: &str = "cubic.png";
@@ -120,26 +115,30 @@ mod cubic {
     }
 
     #[test]
+    #[cfg(feature = "cpu_backend")]
     fn cpu_backend() {
-        let image = generate_image::<Cpu>(CUBIC_FUNCTION, &render_params());
+        let image = generate_image::<julia_set::Cpu>(CUBIC_FUNCTION, &render_params());
         compare_to_reference(SNAPSHOT_FILENAME, &image);
     }
 
     #[test]
+    #[cfg(feature = "cpu_backend")]
     fn cpu_backend_with_native_function() {
-        let image = Program::new(|z| z * z * z - 0.39).render(&render_params());
+        let image = julia_set::CpuProgram::new(|z| z * z * z - 0.39).render(&render_params());
         compare_to_reference(SNAPSHOT_FILENAME, &image);
     }
 
     #[test]
+    #[cfg(feature = "opencl_backend")]
     fn vulkan_backend() {
-        let image = generate_image::<Vulkan>(CUBIC_FUNCTION, &render_params());
+        let image = generate_image::<julia_set::Vulkan>(CUBIC_FUNCTION, &render_params());
         compare_to_reference(SNAPSHOT_FILENAME, &image);
     }
 
     #[test]
+    #[cfg(feature = "vulkan_backend")]
     fn opencl_backend() {
-        let image = generate_image::<OpenCl>(CUBIC_FUNCTION, &render_params());
+        let image = generate_image::<julia_set::OpenCl>(CUBIC_FUNCTION, &render_params());
         compare_to_reference(SNAPSHOT_FILENAME, &image);
     }
 }
