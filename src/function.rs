@@ -7,6 +7,7 @@ use thiserror::Error;
 
 use std::{
     collections::{HashMap, HashSet},
+    error::Error,
     fmt, iter, mem, ops,
 };
 
@@ -202,6 +203,15 @@ impl fmt::Display for FnError {
             formatter.pad(&self.fragment)?;
         }
         Ok(())
+    }
+}
+
+impl Error for FnError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match &self.source {
+            ErrorSource::Eval(e) => Some(e),
+            _ => None,
+        }
     }
 }
 
