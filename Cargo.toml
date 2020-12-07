@@ -40,3 +40,7 @@ dyn_cpu_backend = ["cpu_backend", "arithmetic-parser"]
 name = "references"
 path = "tests/references.rs"
 required-features = ["cpu_backend"]
+
+# Speed up snapshot testing.
+[profile.dev.package.julia-set]
+opt-level = 2
