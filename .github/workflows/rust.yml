@@ -112,7 +112,8 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --all-features --all-targets
+          args: --features dyn_cpu_backend,opencl_backend --all-targets
+          # FIXME: Is it possible to get Vulkan working in CI?
       - name: Run doc tests
         uses: actions-rs/cargo@v1
         with:
