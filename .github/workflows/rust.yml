@@ -1,0 +1,155 @@
+name: Rust
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  # Minimum supported Rust version.
+  msrv: 1.42.0
+  # Nightly Rust toolchain for building docs.
+  nightly: nightly-2020-10-24
+
+jobs:
+  # Checks minimum supported Rust version.
+  build-msrv:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Cache cargo build
+        uses: actions/cache@v1
+        with:
+          path: target
+          key: ${{ runner.os }}-msrv-cargo-build-target
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ env.msrv }}
+          override: true
+
+      - name: Run tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --features dyn_cpu_backend
+
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install packages for OpenCL
+        run: |
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          sudo add-apt-repository 'deb [arch=amd64] http://apt.llvm.org/bionic/ llvm-toolchain-bionic-9 main'
+          sudo apt-get update
+          sudo apt-get install -y --no-install-suggests --no-install-recommends \
+            build-essential cmake pkg-config libhwloc-dev zlib1g-dev \
+            ocl-icd-libopencl1 ocl-icd-dev ocl-icd-opencl-dev clinfo \
+            clang-9 libclang-9-dev llvm-9 llvm-9-dev
+
+      - name: Cache POCL binaries
+        uses: actions/cache@v1
+        with:
+          path: ~/.local
+          key: ${{ runner.os }}-pocl1.5
+
+      - name: Install POCL
+        env:
+          POCL_VER: 1.5
+        run: |
+          if [[ ! -x ~/.local/pocl-$POCL_VER/build/bin/poclcc ]]; then
+            mkdir -p ~/.local && cd ~/.local
+            curl -sSL "https://github.com/pocl/pocl/archive/v$POCL_VER.tar.gz" > pocl-$POCL_VER.tar.gz
+            tar xf "pocl-$POCL_VER.tar.gz"
+            cd pocl-$POCL_VER
+            mkdir -p build && cd build
+            cmake -DWITH_LLVM_CONFIG=/usr/bin/llvm-config-9 \
+              -DCMAKE_INSTALL_PREFIX=/usr \
+              -DLLC_HOST_CPU=x86-64 ..
+            make
+          fi
+          cd ~/.local/pocl-$POCL_VER/build && sudo make install
+          clinfo
+
+      - name: Cache cargo build
+        uses: actions/cache@v1
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-target
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          components: rustfmt,clippy
+
+      - name: Format
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+      - name: Clippy
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-targets --all-features -- -D warnings
+
+      - name: Run tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-features --all-targets
+      - name: Run doc tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-features --doc
+
+  # Building docs does not require an OpenCL libraries or implementation.
+  document:
+    needs:
+      - build
+      - build-msrv
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+
+      - name: Cache cargo build
+        uses: actions/cache@v1
+        with:
+          path: target
+          key: ${{ runner.os }}-docs-cargo-build-target
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ env.nightly }}
+          profile: minimal
+          override: true
+
+      - name: Build docs
+        run: |
+          cargo clean --doc && \
+          cargo rustdoc --all-features -- \
+            --cfg docsrs -Z unstable-options \
+            --extern-html-root-url ocl=https://docs.rs/ocl/~0.19
+
+      - name: Deploy
+        uses: JamesIves/github-pages-deploy-action@releases/v3
+        with:
+          ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+          BRANCH: gh-pages
+          FOLDER: target/doc
+          SINGLE_COMMIT: true
