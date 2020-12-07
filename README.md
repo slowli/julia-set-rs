@@ -1,6 +1,8 @@
 # Julia Set Computation and Rendering
 
+[![Build Status](https://github.com/slowli/julia-set-rs/workflows/Rust/badge.svg?branch=master)](https://github.com/slowli/julia-set-rs/actions)
 [![License: Apache-2.0](https://img.shields.io/github/license/slowli/julia-set-rs.svg)](https://github.com/slowli/julia-set-rs/blob/master/LICENSE)
+![rust 1.44.0+ required](https://img.shields.io/badge/rust-1.44.0+-blue.svg?label=Required%20Rust)
 
 **Documentation:**
 [![crate docs (master)](https://img.shields.io/badge/master-yellow.svg?label=docs)](https://slowli.github.io/julia-set-rs/julia_set/)
