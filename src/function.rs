@@ -5,12 +5,7 @@ use arithmetic_parser::{
 use num_complex::Complex32;
 use thiserror::Error;
 
-use std::{
-    collections::{HashMap, HashSet},
-    error::Error,
-    fmt, iter, mem, ops,
-    str::FromStr,
-};
+use std::{collections::HashSet, error::Error, fmt, iter, mem, ops, str::FromStr};
 
 /// Error associated with creating a [`Function`].
 #[derive(Debug)]
@@ -45,7 +40,7 @@ impl fmt::Display for ErrorSource {
 }
 
 #[derive(Debug, Error)]
-enum EvalError {
+pub(crate) enum EvalError {
     #[error("Last statement in function body is not an expression")]
     NoReturn,
     #[error("Useless expression")]
@@ -62,6 +57,70 @@ enum EvalError {
     Unsupported,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) enum UnaryFunction {
+    Arg,
+    Sqrt,
+    Exp,
+    Sinh,
+    Cosh,
+    Tanh,
+    Asinh,
+    Acosh,
+    Atanh,
+}
+
+impl UnaryFunction {
+    #[cfg(any(feature = "opencl_backend", feature = "vulkan_backend"))]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Arg => "arg",
+            Self::Sqrt => "sqrt",
+            Self::Exp => "exp",
+            Self::Sinh => "sinh",
+            Self::Cosh => "cosh",
+            Self::Tanh => "tanh",
+            Self::Asinh => "asinh",
+            Self::Acosh => "acosh",
+            Self::Atanh => "atanh",
+        }
+    }
+
+    #[cfg(feature = "dyn_cpu_backend")]
+    pub fn eval(self, arg: Complex32) -> Complex32 {
+        match self {
+            Self::Arg => Complex32::new(arg.arg(), 0.0),
+            Self::Sqrt => arg.sqrt(),
+            Self::Exp => arg.exp(),
+            Self::Sinh => arg.sinh(),
+            Self::Cosh => arg.cosh(),
+            Self::Tanh => arg.tanh(),
+            Self::Asinh => arg.asinh(),
+            Self::Acosh => arg.acosh(),
+            Self::Atanh => arg.atanh(),
+        }
+    }
+}
+
+impl FromStr for UnaryFunction {
+    type Err = EvalError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "arg" => Ok(Self::Arg),
+            "sqrt" => Ok(Self::Sqrt),
+            "exp" => Ok(Self::Exp),
+            "sinh" => Ok(Self::Sinh),
+            "cosh" => Ok(Self::Cosh),
+            "tanh" => Ok(Self::Tanh),
+            "asinh" => Ok(Self::Asinh),
+            "acosh" => Ok(Self::Acosh),
+            "atanh" => Ok(Self::Atanh),
+            _ => Err(EvalError::UndefinedFn),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Evaluated {
     Value(Complex32),
@@ -72,10 +131,9 @@ pub(crate) enum Evaluated {
         lhs: Box<Evaluated>,
         rhs: Box<Evaluated>,
     },
-    // FIXME: use enum for `name` and single value for arg.
     FunctionCall {
-        name: String,
-        args: Vec<Evaluated>,
+        function: UnaryFunction,
+        arg: Box<Evaluated>,
     },
 }
 
@@ -237,19 +295,12 @@ impl Parse for FnGrammar {
 #[derive(Debug)]
 pub(crate) struct Context {
     variables: HashSet<String>,
-    functions: HashMap<String, usize>,
 }
 
 impl Context {
-    pub(crate) fn new<'a>(
-        builtin_functions: impl Iterator<Item = (&'a str, usize)>,
-        arg_name: &str,
-    ) -> Self {
+    pub(crate) fn new(arg_name: &str) -> Self {
         Self {
             variables: iter::once(arg_name.to_owned()).collect(),
-            functions: builtin_functions
-                .map(|(name, arity)| (name.to_owned(), arity))
-                .collect(),
         }
     }
 
@@ -331,20 +382,16 @@ impl Context {
 
             Expr::Function { name, args } => {
                 let fn_name = *name.fragment();
-                let arity = if let Some(arity) = self.functions.get(fn_name) {
-                    *arity
-                } else {
-                    return Err(FnError::eval(name, EvalError::UndefinedFn));
-                };
+                let function: UnaryFunction =
+                    fn_name.parse().map_err(|e| FnError::eval(name, e))?;
 
-                if args.len() != arity {
+                if args.len() != 1 {
                     return Err(FnError::eval(expr, EvalError::FnArity));
                 }
 
-                let arg_values = args.iter().map(|arg| self.eval_expr(arg));
                 Ok(Evaluated::FunctionCall {
-                    name: fn_name.to_owned(),
-                    args: arg_values.collect::<Result<_, FnError>>()?,
+                    function,
+                    arg: Box::new(self.eval_expr(&args[0])?),
                 })
             }
 
@@ -356,10 +403,6 @@ impl Context {
         }
     }
 }
-
-const FUNCTIONS: &[&str] = &[
-    "arg", "sqrt", "exp", "sinh", "cosh", "tanh", "asinh", "acosh", "atanh",
-];
 
 /// Parsed complex-valued function of a single variable.
 ///
@@ -422,8 +465,7 @@ impl FromStr for Function {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let statements = FnGrammar::parse_statements(s).map_err(FnError::parse)?;
         let body_span = Spanned::from_str(s, ..);
-        let builtin_functions = FUNCTIONS.iter().copied().map(|name| (name, 1));
-        Context::new(builtin_functions, "z").process(&statements, body_span)
+        Context::new("z").process(&statements, body_span)
     }
 }
 
@@ -486,12 +528,12 @@ mod tests {
         let expected_expr = Evaluated::Binary {
             op: BinaryOp::Mul,
             lhs: Box::new(Evaluated::FunctionCall {
-                name: "sinh".to_owned(),
-                args: vec![Evaluated::Binary {
+                function: UnaryFunction::Sinh,
+                arg: Box::new(Evaluated::Binary {
                     op: BinaryOp::Add,
                     lhs: Box::new(Evaluated::Variable("z".to_owned())),
                     rhs: Box::new(Evaluated::Value(Complex32::new(-5.0, 0.0))),
-                }],
+                }),
             }),
             rhs: Box::new(Evaluated::Value(Complex32::new(0.0, 1.5))),
         };
@@ -504,8 +546,8 @@ mod tests {
         let expected_expr = Evaluated::Binary {
             op: BinaryOp::Add,
             lhs: Box::new(Evaluated::FunctionCall {
-                name: "sinh".to_owned(),
-                args: vec![Evaluated::Variable("z".to_owned())],
+                function: UnaryFunction::Sinh,
+                arg: Box::new(Evaluated::Variable("z".to_owned())),
             }),
             rhs: Box::new(Evaluated::Value(Complex32::new(0.5, -0.2))),
         };

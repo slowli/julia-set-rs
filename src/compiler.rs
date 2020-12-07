@@ -97,16 +97,11 @@ impl Compiler {
                 }
             },
 
-            Evaluated::FunctionCall { name, args } => {
+            Evaluated::FunctionCall { function, arg } => {
                 dest.push_str(FN_PREFIX);
-                dest.push_str(name);
+                dest.push_str(function.as_str());
                 dest.push('(');
-                for (i, arg) in args.iter().enumerate() {
-                    self.compile_expr(dest, arg);
-                    if i + 1 < args.len() {
-                        dest.push_str(", ");
-                    }
-                }
+                self.compile_expr(dest, arg);
                 dest.push(')');
             }
         }
