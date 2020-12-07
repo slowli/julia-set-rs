@@ -35,6 +35,9 @@ struct Args {
     /// Infinity distance for the image.
     #[structopt(name = "inf", long, default_value = "3")]
     infinity_distance: f32,
+    /// Max iteration count.
+    #[structopt(name = "iter", long, default_value = "100")]
+    max_iterations: u8,
 
     /// Complex-valued function for the Julia set, for example, "z * z + 0.5 - 0.4i".
     #[structopt(name = "function")]
@@ -47,7 +50,8 @@ impl Args {
 
         let params = Params::new([self.size.width, self.size.height], self.view_height)
             .with_view_center([self.center_x, self.center_y])
-            .with_infinity_distance(self.infinity_distance);
+            .with_infinity_distance(self.infinity_distance)
+            .with_max_iterations(self.max_iterations);
         let function = self.function.parse()?;
         let image_buffer = self.backend.compile_and_render(&function, &params)?;
         image_buffer.save(&self.output)?;

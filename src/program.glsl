@@ -1,5 +1,5 @@
 #version 450
-#define MAX_ITERATIONS 100
+#define MAX_ITERATIONS 255
 
 precision highp float;
 
@@ -87,6 +87,7 @@ layout(set = 0, binding = 1) uniform Params {
     vec2 view_center;
     vec2 view_size;
     float inf_distance_sq;
+    uint max_iterations;
 } params;
 
 void main() {
@@ -96,16 +97,22 @@ void main() {
     // per view bounds.
     vec2 z = (pixel_pos - vec2(0.5)) * vec2(1 , -1) * params.view_size + params.view_center;
 
-    uint iter = MAX_ITERATIONS;
-    for (uint i = 0; i < MAX_ITERATIONS; i++) {
+    uint iter = params.max_iterations;
+    for (uint i = 0; i < MAX_ITERATIONS && i < params.max_iterations; i++) {
         z = compute(z);
-        if (z.x * z.x + z.y * z.y > params.inf_distance_sq) {
+
+        float z_sq_magnitude = z.x * z.x + z.y * z.y;
+        if (
+            isnan(z_sq_magnitude) ||
+            isinf(z_sq_magnitude) ||
+            z_sq_magnitude > params.inf_distance_sq
+        ) {
             iter = i;
             break;
         }
     }
 
-    float color = float(iter) / MAX_ITERATIONS;
+    float color = float(iter) / params.max_iterations;
     color = smoothstep(0.0, 1.0, 1.0 - color); // FIXME: Get rid of smoothstep
     imageStore(img, ivec2(gl_GlobalInvocationID.xy), vec4(color));
 }

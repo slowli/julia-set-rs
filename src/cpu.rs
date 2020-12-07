@@ -25,8 +25,6 @@ impl<F: ComputePoint> Backend<F> for Cpu {
     }
 }
 
-const MAX_ITERATIONS: usize = 100;
-
 // FIXME: Do not apply by default
 fn smoothstep(low_bound: f32, high_bound: f32, x: f32) -> f32 {
     let clamped_x = if x < low_bound {
@@ -47,6 +45,7 @@ struct CpuParams {
     view_size: [f32; 2],
     view_center: Complex32,
     inf_distance_sq: f32,
+    max_iterations: u8,
 }
 
 impl CpuParams {
@@ -57,6 +56,7 @@ impl CpuParams {
             view_size: [params.view_width(), params.view_height],
             view_center: Complex32::new(params.view_center[0], params.view_center[1]),
             inf_distance_sq: params.inf_distance * params.inf_distance,
+            max_iterations: params.max_iterations,
         }
     }
 
@@ -103,9 +103,9 @@ impl<F: ComputePoint> CpuProgram<F> {
 
         let pixels = (0..image_width).map(|pixel_col| {
             let mut z = params.map_pixel(pixel_row, pixel_col);
-            let mut iter = MAX_ITERATIONS;
+            let mut iter = params.max_iterations;
 
-            for i in 0..MAX_ITERATIONS {
+            for i in 0..params.max_iterations {
                 z = self.function.compute_point(z);
                 if z.is_nan() || z.is_infinite() || z.norm_sqr() > params.inf_distance_sq {
                     iter = i;
@@ -113,7 +113,7 @@ impl<F: ComputePoint> CpuProgram<F> {
                 }
             }
 
-            let color = iter as f32 / MAX_ITERATIONS as f32;
+            let color = iter as f32 / params.max_iterations as f32;
             let color = smoothstep(0.0, 1.0, 1.0 - color);
             (color * 255.0).round() as u8
         });

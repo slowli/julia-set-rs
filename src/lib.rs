@@ -163,6 +163,7 @@ pub struct Params {
     view_height: f32,
     inf_distance: f32,
     image_size: [u32; 2],
+    max_iterations: u8,
 }
 
 impl Params {
@@ -191,6 +192,7 @@ impl Params {
             view_height,
             inf_distance: 3.0,
             image_size: image_dimensions,
+            max_iterations: 100,
         }
     }
 
@@ -208,6 +210,17 @@ impl Params {
     pub fn with_infinity_distance(mut self, inf_distance: f32) -> Self {
         assert!(inf_distance > 0.0, "`inf_distance` should be positive");
         self.inf_distance = inf_distance;
+        self
+    }
+
+    /// Sets the maximum iteration count.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `max_iterations` is zero.
+    pub fn with_max_iterations(mut self, max_iterations: u8) -> Self {
+        assert_ne!(max_iterations, 0, "Max iterations must be positive");
+        self.max_iterations = max_iterations;
         self
     }
 

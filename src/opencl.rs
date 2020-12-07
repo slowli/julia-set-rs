@@ -86,6 +86,7 @@ impl Render for OpenClProgram {
             view_center: Float2::new(params.view_center[0], params.view_center[1]),
             view_size: Float2::new(params.view_width(), params.view_height),
             inf_distance_sq: params.inf_distance * params.inf_distance,
+            max_iterations: params.max_iterations,
         };
         let kernel = self
             .inner
@@ -103,12 +104,13 @@ impl Render for OpenClProgram {
     }
 }
 
-#[repr(C, packed)]
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
+#[repr(C, packed)]
 struct ClParams {
     view_center: Float2,
     view_size: Float2,
     inf_distance_sq: f32,
+    max_iterations: u8,
 }
 
 // Safety ensured by the same alignment here and in OCL code.
