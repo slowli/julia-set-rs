@@ -8,7 +8,7 @@ on:
 
 env:
   # Minimum supported Rust version.
-  msrv: 1.42.0
+  msrv: 1.44.0
   # Nightly Rust toolchain for building docs.
   nightly: nightly-2020-10-24
 
@@ -44,7 +44,13 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Install packages for OpenCL
+      - name: Install packages for Vulkan
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-suggests --no-install-recommends \
+            cmake libvulkan-dev vulkan-utils
+
+      - name: Install packages for POCL
         run: |
           wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
           sudo add-apt-repository 'deb [arch=amd64] http://apt.llvm.org/bionic/ llvm-toolchain-bionic-9 main'
