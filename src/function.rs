@@ -9,6 +9,7 @@ use std::{
     collections::{HashMap, HashSet},
     error::Error,
     fmt, iter, mem, ops,
+    str::FromStr,
 };
 
 /// Error associated with creating a [`Function`].
@@ -71,6 +72,7 @@ pub(crate) enum Evaluated {
         lhs: Box<Evaluated>,
         rhs: Box<Evaluated>,
     },
+    // FIXME: use enum for `name` and single value for arg.
     FunctionCall {
         name: String,
         args: Vec<Evaluated>,
@@ -361,7 +363,30 @@ const FUNCTIONS: &[&str] = &[
 
 /// Parsed complex-valued function of a single variable.
 ///
-/// FIXME: requirements, examples
+/// A `Function` instance can be created using [`FromStr`] trait. A function must use `z`
+/// as the (only) argument. A function may use arithmetic operations (`+`, `-`, `*`, `/`, `^`)
+/// and/or predefined unary functions:
+///
+/// - General functions: `arg`, `sqrt`, `exp`
+/// - Hyperbolic trigonometry: `sinh`, `cosh`, `tanh`
+/// - Inverse hyperbolic trigonometry: `asinh`, `acosh`, `atanh`
+///
+/// A function may define local variable assignment(s). The assignment syntax is similar to Python
+/// (or Rust, just without the `let` keyword): variable name followed by `=` and then by
+/// the arithmetic expression. Assignments must be separated by semicolons `;`. As in Rust,
+/// the last expression in function body is its return value.
+///
+/// # Examples
+///
+/// ```
+/// # use julia_set::Function;
+/// # fn main() -> anyhow::Result<()> {
+/// let function: Function = "z * z - 0.5".parse()?;
+/// let fn_with_calls: Function = "0.8 * z + z / atanh(z ^ -4)".parse()?;
+/// let fn_with_vars: Function = "c = -0.5 + 0.4i; z * z + c".parse()?;
+/// # Ok(())
+/// # }
+/// ```
 #[cfg_attr(
     docsrs,
     doc(cfg(any(
@@ -376,18 +401,6 @@ pub struct Function {
 }
 
 impl Function {
-    /// Creates a new function from the specified code.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the function cannot be parsed or evaluated.
-    pub fn new(body: &str) -> Result<Self, FnError> {
-        let statements = FnGrammar::parse_statements(body).map_err(FnError::parse)?;
-        let body_span = Spanned::from_str(body, ..);
-        let builtin_functions = FUNCTIONS.iter().copied().map(|name| (name, 1));
-        Context::new(builtin_functions, "z").process(&statements, body_span)
-    }
-
     pub(crate) fn assignments(&self) -> impl Iterator<Item = (&str, &Evaluated)> + '_ {
         self.assignments.iter().filter_map(|(name, value)| {
             if name.is_empty() {
@@ -400,6 +413,17 @@ impl Function {
 
     pub(crate) fn return_value(&self) -> &Evaluated {
         &self.assignments.last().unwrap().1
+    }
+}
+
+impl FromStr for Function {
+    type Err = FnError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let statements = FnGrammar::parse_statements(s).map_err(FnError::parse)?;
+        let body_span = Spanned::from_str(s, ..);
+        let builtin_functions = FUNCTIONS.iter().copied().map(|name| (name, 1));
+        Context::new(builtin_functions, "z").process(&statements, body_span)
     }
 }
 
@@ -417,7 +441,7 @@ mod tests {
 
     #[test]
     fn simple_function() {
-        let function = Function::new("z*z + (0.77 - 0.2i)").unwrap();
+        let function: Function = "z*z + (0.77 - 0.2i)".parse().unwrap();
         let expected_expr = Evaluated::Binary {
             op: BinaryOp::Add,
             lhs: z_square(),
@@ -428,7 +452,7 @@ mod tests {
 
     #[test]
     fn simple_function_with_rewrite_rules() {
-        let function = Function::new("z / 0.25 - 0.1i + (0.77 - 0.1i)").unwrap();
+        let function: Function = "z / 0.25 - 0.1i + (0.77 - 0.1i)".parse().unwrap();
         let expected_expr = Evaluated::Binary {
             op: BinaryOp::Add,
             lhs: Box::new(Evaluated::Binary {
@@ -443,7 +467,7 @@ mod tests {
 
     #[test]
     fn function_with_several_rewrite_rules() {
-        let function = Function::new("z + 0.1 - z*z + 0.3i").unwrap();
+        let function: Function = "z + 0.1 - z*z + 0.3i".parse().unwrap();
         let expected_expr = Evaluated::Binary {
             op: BinaryOp::Add,
             lhs: Box::new(Evaluated::Binary {
@@ -458,7 +482,7 @@ mod tests {
 
     #[test]
     fn simple_function_with_mul_rewrite_rules() {
-        let function = Function::new("sinh(z - 5) / 4. * 6i").unwrap();
+        let function: Function = "sinh(z - 5) / 4. * 6i".parse().unwrap();
         let expected_expr = Evaluated::Binary {
             op: BinaryOp::Mul,
             lhs: Box::new(Evaluated::FunctionCall {
@@ -476,7 +500,7 @@ mod tests {
 
     #[test]
     fn simple_function_with_redistribution() {
-        let function = Function::new("0.5 + sinh(z) - 0.2i").unwrap();
+        let function: Function = "0.5 + sinh(z) - 0.2i".parse().unwrap();
         let expected_expr = Evaluated::Binary {
             op: BinaryOp::Add,
             lhs: Box::new(Evaluated::FunctionCall {
@@ -490,8 +514,7 @@ mod tests {
 
     #[test]
     fn function_with_assignments() {
-        const BODY: &str = "c = 0.5 - 0.2i; z*z + c";
-        let function = Function::new(BODY).unwrap();
+        let function: Function = "c = 0.5 - 0.2i; z*z + c".parse().unwrap();
         let expected_expr = Evaluated::Binary {
             op: BinaryOp::Add,
             lhs: z_square(),

@@ -119,13 +119,13 @@ mod tests {
 
     #[test]
     fn compiling_simple_fns() {
-        let function = Function::new("z*z + 0.2 + 0.5i").unwrap();
+        let function = "z*z + 0.2 + 0.5i".parse().unwrap();
         let code = Compiler::for_ocl().compile(&function);
         assert_eq!(code, "return complex_mul(z, z) + (float2)(0.2, 0.5);");
         let code = Compiler::for_gl().compile(&function);
         assert_eq!(code, "return complex_mul(z, z) + vec2(0.2, 0.5);");
 
-        let function = Function::new("z^3 * sinh(0.2 + z*z)").unwrap();
+        let function = "z^3 * sinh(0.2 + z*z)".parse().unwrap();
         let code = Compiler::for_ocl().compile(&function);
         assert_eq!(
             code,
@@ -142,7 +142,7 @@ mod tests {
 
     #[test]
     fn complex_function_arg() {
-        let function = Function::new("sinh(z^2 + 2i * z * -0.5)").unwrap();
+        let function = "sinh(z^2 + 2i * z * -0.5)".parse().unwrap();
         let code = Compiler::for_ocl().compile(&function);
         assert_eq!(
             code,
@@ -150,7 +150,7 @@ mod tests {
              complex_mul(z, (float2)(0, -1)));"
         );
 
-        let function = Function::new("0.7 + cosh(z*z - 0.5i) * z").unwrap();
+        let function = "0.7 + cosh(z*z - 0.5i) * z".parse().unwrap();
         let code = Compiler::for_ocl().compile(&function);
         assert_eq!(
             code,
@@ -161,7 +161,7 @@ mod tests {
 
     #[test]
     fn compiling_fn_with_assignment() {
-        let function = Function::new("c = 0.5 + 0.4i; z*z + c").unwrap();
+        let function = "c = 0.5 + 0.4i; z*z + c".parse().unwrap();
         let code = Compiler::for_ocl().compile(&function);
         assert_eq!(
             code,
@@ -169,7 +169,7 @@ mod tests {
              return complex_mul(z, z) + __var_c;"
         );
 
-        let function = Function::new("d = sinh(z) * z * 1.1; z*z - 0.5 + d").unwrap();
+        let function = "d = sinh(z) * z * 1.1; z*z - 0.5 + d".parse().unwrap();
         let code = Compiler::for_ocl().compile(&function);
         assert_eq!(
             code,

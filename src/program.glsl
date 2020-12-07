@@ -106,6 +106,6 @@ void main() {
     }
 
     float color = float(iter) / MAX_ITERATIONS;
-    color = smoothstep(0.0, 1.0, 1.0 - color);
+    color = smoothstep(0.0, 1.0, 1.0 - color); // FIXME: Get rid of smoothstep
     imageStore(img, ivec2(gl_GlobalInvocationID.xy), vec4(color));
 }

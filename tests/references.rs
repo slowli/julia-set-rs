@@ -115,7 +115,7 @@ mod cubic {
         feature = "vulkan_backend"
     ))]
     fn create_function() -> julia_set::Function {
-        julia_set::Function::new("z * z * z - 0.39").unwrap()
+        "z * z * z - 0.39".parse().unwrap()
     }
 
     const SNAPSHOT_FILENAME: &str = "cubic.png";
@@ -163,7 +163,7 @@ mod exp {
         feature = "vulkan_backend"
     ))]
     fn create_function() -> julia_set::Function {
-        julia_set::Function::new("exp(z ^ -4) + 0.15i").unwrap()
+        "exp(z ^ -4) + 0.15i".parse().unwrap()
     }
 
     const SNAPSHOT_FILENAME: &str = "exp.png";
@@ -214,7 +214,7 @@ mod flower {
         feature = "vulkan_backend"
     ))]
     fn create_function() -> julia_set::Function {
-        julia_set::Function::new("0.8*z + z/atanh(z^-4)").unwrap()
+        "0.8*z + z/atanh(z^-4)".parse().unwrap()
     }
 
     const SNAPSHOT_FILENAME: &str = "flower.png";
@@ -265,7 +265,9 @@ mod hills {
         feature = "vulkan_backend"
     ))]
     fn create_function() -> julia_set::Function {
-        julia_set::Function::new("1i * acosh(cosh(1i * z) - arg(z)^-2) - 0.05 + 0.05i").unwrap()
+        "1i * acosh(cosh(1i * z) - arg(z)^-2) - 0.05 + 0.05i"
+            .parse()
+            .unwrap()
     }
 
     const SNAPSHOT_FILENAME: &str = "hills.png";
@@ -321,7 +323,7 @@ mod spiral {
         feature = "vulkan_backend"
     ))]
     fn create_function() -> julia_set::Function {
-        julia_set::Function::new("z + tanh(sqrt(z)) - 0.18 + 0.5i").unwrap()
+        "z + tanh(sqrt(z)) - 0.18 + 0.5i".parse().unwrap()
     }
 
     const SNAPSHOT_FILENAME: &str = "spiral.png";

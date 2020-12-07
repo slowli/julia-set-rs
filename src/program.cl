@@ -114,6 +114,6 @@ __kernel void julia(
     }
 
     float color = (float) iter / MAX_ITERATIONS;
-    color = smoothstep(0.0f, 1.0f, 1.0f - color);
+    color = smoothstep(0.0f, 1.0f, 1.0f - color); // FIXME: Get rid of smoothstep
     output[pixel_y * w + pixel_x] = round(color * 255);
 }

@@ -48,7 +48,7 @@ impl Args {
         let params = Params::new([self.size.width, self.size.height], self.view_height)
             .with_view_center([self.center_x, self.center_y])
             .with_infinity_distance(self.infinity_distance);
-        let function = Function::new(&self.function)?;
+        let function = self.function.parse()?;
         let image_buffer = self.backend.compile_and_render(&function, &params)?;
         image_buffer.save(&self.output)?;
         Ok(())

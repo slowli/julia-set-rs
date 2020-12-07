@@ -27,6 +27,7 @@ impl<F: ComputePoint> Backend<F> for Cpu {
 
 const MAX_ITERATIONS: usize = 100;
 
+// FIXME: Do not apply by default
 fn smoothstep(low_bound: f32, high_bound: f32, x: f32) -> f32 {
     let clamped_x = if x < low_bound {
         low_bound
@@ -246,7 +247,7 @@ mod tests {
     fn compute() {
         use crate::Function;
 
-        let program = Function::new("z * z + 0.5i").unwrap();
+        let program: Function = "z * z + 0.5i".parse().unwrap();
         assert_eq!(
             program.compute_point(Complex32::new(0.0, 0.0)),
             Complex32::new(0.0, 0.5)
@@ -270,7 +271,7 @@ mod tests {
     fn compute_does_not_panic() {
         use crate::Function;
 
-        let program = Function::new("1.0 / z + 0.5i").unwrap();
+        let program: Function = "1.0 / z + 0.5i".parse().unwrap();
         let z = program.compute_point(Complex32::new(0.0, 0.0));
         assert!(z.is_nan());
     }
