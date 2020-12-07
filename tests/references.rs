@@ -37,14 +37,18 @@ fn compare_to_reference(reference_filename: &str, image: &ImageBuffer) {
         let image_diff = ImageDiff::new(reference_image, &image);
         println!("{}: {:?}", reference_filename, image_diff);
         image_diff.assert_is_sound();
-    } else if let Ok("1") = env::var("SNAPSHOT_UPDATE").as_deref() {
-        // Store the reference image.
-        image
-            .save(&reference_path)
-            .expect("Cannot save reference image");
-    } else {
-        panic!("Snapshot `{}` not found", reference_filename);
+        return;
+    } else if let Ok(snapshot_update) = env::var("SNAPSHOT_UPDATE") {
+        if snapshot_update == "1" {
+            // Store the reference image.
+            image
+                .save(&reference_path)
+                .expect("Cannot save reference image");
+            return;
+        }
     }
+
+    panic!("Snapshot `{}` not found", reference_filename);
 }
 
 #[derive(Debug)]

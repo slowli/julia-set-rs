@@ -65,11 +65,11 @@ impl Compiler {
 
             Evaluated::Value(val) => {
                 dest.push_str(self.complex_init);
-                dest.push_str("(");
+                dest.push('(');
                 dest.push_str(&val.re.to_string());
                 dest.push_str(", ");
                 dest.push_str(&val.im.to_string());
-                dest.push_str(")");
+                dest.push(')');
             }
 
             Evaluated::Negation(inner) => {
