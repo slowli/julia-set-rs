@@ -40,6 +40,13 @@ name = "references"
 path = "tests/references.rs"
 required-features = ["cpu_backend"]
 
+[[example]]
+name = "cli"
+path = "examples/cli.rs"
+required-features = ["dyn_cpu_backend"]
+# TODO: strictly speaking, we need any of 3 "dynamic" backends, but the manifest
+# seemingly doesn't allow to express this.
+
 # Speed up snapshot testing.
 [profile.dev.package.julia-set]
 opt-level = 2

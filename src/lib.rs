@@ -102,7 +102,7 @@ pub use crate::opencl::{OpenCl, OpenClProgram};
 #[cfg(feature = "vulkan_backend")]
 pub use crate::vulkan::{Vulkan, VulkanProgram};
 
-#[cfg(feature = "arithmetic-parser")]
+#[cfg(any(feature = "opencl_backend", feature = "vulkan_backend"))]
 mod compiler;
 #[cfg(feature = "cpu_backend")]
 mod cpu;
