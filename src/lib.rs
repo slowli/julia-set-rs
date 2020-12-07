@@ -211,7 +211,11 @@ impl Params {
         self
     }
 
-    #[cfg(any(feature = "cpu_backend", feature = "opencl_backend", feature = "vulkan_backend"))]
+    #[cfg(any(
+        feature = "cpu_backend",
+        feature = "opencl_backend",
+        feature = "vulkan_backend"
+    ))]
     pub(crate) fn view_width(&self) -> f32 {
         self.view_height * (self.image_size[0] as f32) / (self.image_size[1] as f32)
     }
