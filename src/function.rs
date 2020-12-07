@@ -11,7 +11,16 @@ use std::{
     fmt, iter, mem, ops,
 };
 
+/// Error associated with creating a [`Function`].
 #[derive(Debug)]
+#[cfg_attr(
+    docsrs,
+    doc(cfg(any(
+        feature = "dyn_cpu_backend",
+        feature = "opencl_backend",
+        feature = "vulkan_backend"
+    )))
+)]
 pub struct FnError {
     fragment: String,
     line: u32,
@@ -20,7 +29,7 @@ pub struct FnError {
 }
 
 #[derive(Debug)]
-pub enum ErrorSource {
+enum ErrorSource {
     Parse(String),
     Eval(EvalError),
 }
@@ -35,9 +44,7 @@ impl fmt::Display for ErrorSource {
 }
 
 #[derive(Debug, Error)]
-pub enum EvalError {
-    #[error("Function body cannot be empty")]
-    Empty,
+enum EvalError {
     #[error("Last statement in function body is not an expression")]
     NoReturn,
     #[error("Useless expression")]
@@ -55,7 +62,7 @@ pub enum EvalError {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Evaluated {
+pub(crate) enum Evaluated {
     Value(Complex32),
     Variable(String),
     Negation(Box<Evaluated>),
@@ -226,7 +233,7 @@ impl Parse for FnGrammar {
 }
 
 #[derive(Debug)]
-pub struct Context {
+pub(crate) struct Context {
     variables: HashSet<String>,
     functions: HashMap<String, usize>,
 }
@@ -352,12 +359,28 @@ const FUNCTIONS: &[&str] = &[
     "arg", "sqrt", "exp", "sinh", "cosh", "tanh", "asinh", "acosh", "atanh",
 ];
 
+/// Parsed complex-valued function of a single variable.
+///
+/// FIXME: requirements, examples
+#[cfg_attr(
+    docsrs,
+    doc(cfg(any(
+        feature = "dyn_cpu_backend",
+        feature = "opencl_backend",
+        feature = "vulkan_backend"
+    )))
+)]
 #[derive(Debug, Clone)]
 pub struct Function {
     assignments: Vec<(String, Evaluated)>,
 }
 
 impl Function {
+    /// Creates a new function from the specified code.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the function cannot be parsed or evaluated.
     pub fn new(body: &str) -> Result<Self, FnError> {
         let statements = FnGrammar::parse_statements(body).map_err(FnError::parse)?;
         let body_span = Spanned::from_str(body, ..);
@@ -365,7 +388,7 @@ impl Function {
         Context::new(builtin_functions, "z").process(&statements, body_span)
     }
 
-    pub fn assignments(&self) -> impl Iterator<Item = (&str, &Evaluated)> + '_ {
+    pub(crate) fn assignments(&self) -> impl Iterator<Item = (&str, &Evaluated)> + '_ {
         self.assignments.iter().filter_map(|(name, value)| {
             if name.is_empty() {
                 None
@@ -375,7 +398,7 @@ impl Function {
         })
     }
 
-    pub fn return_value(&self) -> &Evaluated {
+    pub(crate) fn return_value(&self) -> &Evaluated {
         &self.assignments.last().unwrap().1
     }
 }

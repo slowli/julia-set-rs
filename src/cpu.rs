@@ -7,17 +7,20 @@ use std::convert::Infallible;
 
 use crate::{Backend, ImageBuffer, Params, Render};
 
+/// Backend that uses CPU for computations.
+///
+/// The current implementation is based on the [`rayon`] crate.
+///
+/// [`rayon`]: https://crates.io/crates/rayon
+#[cfg_attr(docsrs, doc(cfg(feature = "cpu_backend")))]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Cpu;
 
-impl<F: Sync> Backend<F> for Cpu
-where
-    CpuProgram<F>: ComputePoint,
-{
+impl<F: ComputePoint> Backend<F> for Cpu {
     type Error = Infallible;
     type Program = CpuProgram<F>;
 
-    fn create_program(function: F) -> Result<Self::Program, Self::Error> {
+    fn create_program(&self, function: F) -> Result<Self::Program, Self::Error> {
         Ok(CpuProgram::new(function))
     }
 }
@@ -68,20 +71,29 @@ impl CpuParams {
     }
 }
 
-pub trait ComputePoint {
+/// Complex-valued function of a single variable.
+#[cfg_attr(docsrs, doc(cfg(feature = "cpu_backend")))]
+pub trait ComputePoint: Sync {
+    /// Computes the function value at the specified point.
     fn compute_point(&self, z: Complex32) -> Complex32;
 }
 
+/// Programs output by the [`Cpu`] backend. Come in two varieties depending on the type param:
+/// native closures, or interpreted [`Function`](crate::Function)s.
+#[cfg_attr(docsrs, doc(cfg(feature = "cpu_backend")))]
 #[derive(Debug)]
 pub struct CpuProgram<F> {
     function: F,
 }
 
-impl<F: Sync> CpuProgram<F>
-where
-    Self: ComputePoint,
-{
-    pub fn new(function: F) -> Self {
+impl<F: Fn(Complex32) -> Complex32 + Sync> ComputePoint for F {
+    fn compute_point(&self, z: Complex32) -> Complex32 {
+        self(z)
+    }
+}
+
+impl<F: ComputePoint> CpuProgram<F> {
+    fn new(function: F) -> Self {
         Self { function }
     }
 
@@ -93,7 +105,7 @@ where
             let mut iter = MAX_ITERATIONS;
 
             for i in 0..MAX_ITERATIONS {
-                z = self.compute_point(z);
+                z = self.function.compute_point(z);
                 if z.is_nan() || z.is_infinite() || z.norm_sqr() > params.inf_distance_sq {
                     iter = i;
                     break;
@@ -108,16 +120,7 @@ where
     }
 }
 
-impl<F: Fn(Complex32) -> Complex32> ComputePoint for CpuProgram<F> {
-    fn compute_point(&self, z: Complex32) -> Complex32 {
-        (self.function)(z)
-    }
-}
-
-impl<F: Sync> Render for CpuProgram<F>
-where
-    Self: ComputePoint,
-{
+impl<F: ComputePoint> Render for CpuProgram<F> {
     type Error = Infallible;
 
     fn render(&self, params: &Params) -> Result<ImageBuffer, Self::Error> {
@@ -149,13 +152,13 @@ mod dynamic {
     use std::{collections::HashMap, convert::Infallible};
 
     use super::{ComputePoint, Cpu, CpuProgram};
-    use crate::{Backend, Evaluated, Function};
+    use crate::{function::Evaluated, Backend, Function};
 
     impl Backend<&Function> for Cpu {
         type Error = Infallible;
         type Program = CpuProgram<Function>;
 
-        fn create_program(function: &Function) -> Result<Self::Program, Self::Error> {
+        fn create_program(&self, function: &Function) -> Result<Self::Program, Self::Error> {
             Ok(CpuProgram::new(function.to_owned()))
         }
     }
@@ -199,16 +202,16 @@ mod dynamic {
         }
     }
 
-    impl ComputePoint for CpuProgram<Function> {
+    impl ComputePoint for Function {
         fn compute_point(&self, z: Complex32) -> Complex32 {
             let mut variables = HashMap::new();
             variables.insert("z", z);
 
-            for (var_name, expr) in self.function.assignments() {
+            for (var_name, expr) in self.assignments() {
                 let expr = eval(expr, &variables);
                 variables.insert(var_name, expr);
             }
-            eval(self.function.return_value(), &variables)
+            eval(self.return_value(), &variables)
         }
     }
 }
@@ -243,7 +246,7 @@ mod tests {
     fn compute() {
         use crate::Function;
 
-        let program = CpuProgram::new(Function::new("z * z + 0.5i").unwrap());
+        let program = Function::new("z * z + 0.5i").unwrap();
         assert_eq!(
             program.compute_point(Complex32::new(0.0, 0.0)),
             Complex32::new(0.0, 0.5)
@@ -267,7 +270,7 @@ mod tests {
     fn compute_does_not_panic() {
         use crate::Function;
 
-        let program = CpuProgram::new(Function::new("1.0 / z + 0.5i").unwrap());
+        let program = Function::new("1.0 / z + 0.5i").unwrap();
         let z = program.compute_point(Complex32::new(0.0, 0.0));
         assert!(z.is_nan());
     }

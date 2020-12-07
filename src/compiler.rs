@@ -2,7 +2,7 @@
 
 use arithmetic_parser::BinaryOp;
 
-use crate::{Evaluated, Function};
+use crate::{function::Evaluated, Function};
 
 const COMPUTE_ARGUMENT: &str = "z";
 const VAR_PREFIX: &str = "__var_";

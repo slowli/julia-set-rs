@@ -114,6 +114,10 @@ struct VulkanParams {
     inf_distance_sq: f32,
 }
 
+/// Backend based on [Vulkan].
+///
+/// [Vulkan]: https://www.khronos.org/vulkan/
+#[cfg_attr(docsrs, doc(cfg(feature = "vulkan_backend")))]
 #[derive(Debug, Clone, Default)]
 pub struct Vulkan;
 
@@ -121,12 +125,14 @@ impl Backend<&Function> for Vulkan {
     type Error = anyhow::Error;
     type Program = VulkanProgram;
 
-    fn create_program(function: &Function) -> Result<Self::Program, Self::Error> {
+    fn create_program(&self, function: &Function) -> Result<Self::Program, Self::Error> {
         let compiled = Compiler::for_gl().compile(function);
         VulkanProgram::new(&compiled)
     }
 }
 
+/// Program produced by the [`Vulkan`] backend.
+#[cfg_attr(docsrs, doc(cfg(feature = "vulkan_backend")))]
 #[derive(Debug)]
 pub struct VulkanProgram {
     device: Arc<Device>,

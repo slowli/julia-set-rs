@@ -114,14 +114,15 @@ impl BackendName {
     ) -> anyhow::Result<ImageBuffer> {
         Ok(match self {
             #[cfg(feature = "dyn_cpu_backend")]
-            Self::Cpu => julia_set::Cpu::create_program(function)?.render(params)?,
+            Self::Cpu => julia_set::Cpu.create_program(function)?.render(params)?,
             #[cfg(feature = "opencl_backend")]
-            Self::OpenCl => julia_set::OpenCl::create_program(function)
+            Self::OpenCl => julia_set::OpenCl
+                .create_program(function)
                 .map_err(|e| anyhow!(e))?
                 .render(params)
                 .map_err(|e| anyhow!(e))?,
             #[cfg(feature = "vulkan_backend")]
-            Self::Vulkan => julia_set::Vulkan::create_program(function)?.render(params)?,
+            Self::Vulkan => julia_set::Vulkan.create_program(function)?.render(params)?,
         })
     }
 }

@@ -8,8 +8,12 @@ use julia_set::{Backend, ImageBuffer, Params, Render};
 
 const IMAGE_SIZE: [u32; 2] = [360, 360];
 
-fn generate_image<F, B: Backend<F>>(function: F, params: &Params) -> ImageBuffer {
-    B::create_program(function).unwrap().render(params).unwrap()
+fn generate_image<F, B: Backend<F> + Default>(function: F, params: &Params) -> ImageBuffer {
+    B::default()
+        .create_program(function)
+        .unwrap()
+        .render(params)
+        .unwrap()
 }
 
 fn compare_to_reference(reference_filename: &str, image: &ImageBuffer) {

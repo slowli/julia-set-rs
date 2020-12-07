@@ -10,6 +10,10 @@ use crate::{compiler::Compiler, Backend, Function, ImageBuffer, Params, Render};
 
 const PROGRAM: &str = include_str!("program.cl");
 
+/// Backend based on [OpenCL].
+///
+/// [OpenCL]: https://www.khronos.org/opencl/
+#[cfg_attr(docsrs, doc(cfg(feature = "opencl_backend")))]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct OpenCl;
 
@@ -17,12 +21,14 @@ impl Backend<&Function> for OpenCl {
     type Error = ocl::Error;
     type Program = OpenClProgram;
 
-    fn create_program(function: &Function) -> Result<Self::Program, Self::Error> {
+    fn create_program(&self, function: &Function) -> Result<Self::Program, Self::Error> {
         let compiled = Compiler::for_ocl().compile(function);
         OpenClProgram::new(compiled)
     }
 }
 
+/// Program produced by the [`OpenCl`] backend.
+#[cfg_attr(docsrs, doc(cfg(feature = "opencl_backend")))]
 #[derive(Debug)]
 pub struct OpenClProgram {
     inner: ProQue,
