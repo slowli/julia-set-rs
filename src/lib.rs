@@ -41,7 +41,9 @@
 //! a string presentation, e.g., `"z * z - 0.4i"`. The [`arithmetic-parser`] crate is used for this
 //! purpose. For `cpu_backend`, the function is defined directly in Rust.
 //!
-//! For efficiency and modularity, a [`Backend`] creates .
+//! For efficiency and modularity, a [`Backend`] creates a *program* for each function.
+//! (In case of OpenCL, a program is a kernel, and in Vulkan a program is a compute shader.)
+//! The program can then be [`Render`]ed with various [`Params`].
 //!
 //! Backends targeting GPUs (i.e., `OpenCl` and `Vulkan`) should be much faster than CPU-based
 //! backends. Indeed, the rendering task is [embarrassingly parallel] (could be performed
@@ -152,11 +154,16 @@ pub trait Render {
 ///
 /// The parameters are:
 ///
-/// - **Image dimensions** (in pixels)
-/// - **View dimensions** and **view center** determine the rendered area. (Only the view height
+/// - Image dimensions (in pixels)
+/// - View dimensions and view center determining the rendered area. (Only the view height
 ///   is specified explicitly; the width is inferred from the height and
 ///   the image dimension ratio.)
-/// - **Infinity distance** (see the [Julia set definition] for more details)
+/// - Infinity distance
+/// - Upper bound on the iteration count
+///
+/// See the [Julia set theory] for more details regarding these parameters.
+///
+/// [Julia set theory]: index.html#theory
 #[derive(Debug, Clone)]
 pub struct Params {
     view_center: [f32; 2],
