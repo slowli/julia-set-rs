@@ -49,6 +49,7 @@ struct CpuParams {
 }
 
 impl CpuParams {
+    #[allow(clippy::cast_precision_loss)] // The loss of precision is acceptable
     fn new(params: &Params) -> Self {
         Self {
             image_size: params.image_size,
@@ -60,6 +61,7 @@ impl CpuParams {
         }
     }
 
+    #[allow(clippy::cast_precision_loss)] // The loss of precision is acceptable
     fn map_pixel(self, pixel_row: u32, pixel_col: u32) -> Complex32 {
         let [width, height] = self.image_size_f32;
         let [view_width, view_height] = self.view_size;
@@ -98,6 +100,7 @@ impl<F: ComputePoint> CpuProgram<F> {
         Self { function }
     }
 
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     fn compute_row(&self, params: CpuParams, pixel_row: u32) -> Vec<u8> {
         let [image_width, _] = params.image_size;
 
@@ -113,9 +116,9 @@ impl<F: ComputePoint> CpuProgram<F> {
                 }
             }
 
-            let color = iter as f32 / params.max_iterations as f32;
+            let color = f32::from(iter) / f32::from(params.max_iterations);
             let color = smoothstep(0.0, 1.0, 1.0 - color);
-            (color * 255.0).round() as u8
+            (color * 255.0).round() as u8 // cannot truncate or lose sign by construction
         });
         pixels.collect()
     }

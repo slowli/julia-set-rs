@@ -241,7 +241,7 @@ impl ops::Neg for Evaluated {
 }
 
 impl FnError {
-    fn parse(source: arithmetic_parser::Error<'_>) -> Self {
+    fn parse(source: &arithmetic_parser::Error<'_>) -> Self {
         let column = source.span().get_column();
         Self {
             fragment: (*source.span().fragment()).to_owned(),
@@ -463,7 +463,7 @@ impl FromStr for Function {
     type Err = FnError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let statements = FnGrammar::parse_statements(s).map_err(FnError::parse)?;
+        let statements = FnGrammar::parse_statements(s).map_err(|e| FnError::parse(&e))?;
         let body_span = Spanned::from_str(s, ..);
         Context::new("z").process(&statements, body_span)
     }

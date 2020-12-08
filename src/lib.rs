@@ -91,7 +91,14 @@
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(html_root_url = "https://docs.rs/julia-set/0.1.0")]
-#![warn(missing_docs, missing_debug_implementations)]
+#![warn(missing_docs, missing_debug_implementations, bare_trait_objects)]
+#![warn(clippy::all, clippy::pedantic)]
+#![allow(
+    clippy::missing_errors_doc,
+    clippy::must_use_candidate,
+    clippy::module_name_repetitions,
+    clippy::doc_markdown
+)]
 
 use std::fmt;
 
@@ -236,6 +243,7 @@ impl Params {
         feature = "opencl_backend",
         feature = "vulkan_backend"
     ))]
+    #[allow(clippy::cast_precision_loss)] // loss of precision is acceptable
     pub(crate) fn view_width(&self) -> f32 {
         self.view_height * (self.image_size[0] as f32) / (self.image_size[1] as f32)
     }
