@@ -1,15 +1,40 @@
-//! Pointwise post-processing transforms.
-
-#![allow(missing_docs)]
+//! Post-processing transforms on Julia set images.
+//!
+//! These transforms are not meant to be exhaustive; rather, they represent some functionality
+//! lacking from [`image`] and [`imageproc`] crates. You can absolutely use the transforms from
+//! these crates together with (or instead of) transforms defined here.
+//!
+//! [`image`]: https://crates.io/crates/image
+//! [`imageproc`]: https://crates.io/crates/imageproc
+//!
+//! # Examples
+//!
+//!
+//! ```
+//! # use image::GrayImage;
+//! use julia_set::transform::{ApplyTransform, Negative, Smoothstep};
+//!
+//! let image: GrayImage = // ...
+//! #    GrayImage::from_raw(10, 10, vec![0_u8; 100]).unwrap();
+//! let transformed_image = image.apply(Negative).apply(Smoothstep).transform();
+//! ```
 
 use image::{ImageBuffer, Luma, Pixel};
 
+/// Pixel-wise transform.
+///
+/// The function defined by the transform is applied separately to each pixel of the source image.
+/// The transform may change the type of pixels (e.g., transform from grayscale to a color image),
+/// or may leave it intact.
 pub trait PixelTransform<Pix: Pixel> {
+    /// Pixel type for the output image.
     type Output: Pixel + 'static;
 
+    /// Performs transform on a single pixel.
     fn transform_pixel(&self, pixel: Pix) -> Self::Output;
 }
 
+/// No-op transform.
 impl<Pix: Pixel + 'static> PixelTransform<Pix> for () {
     type Output = Pix;
 
@@ -32,6 +57,8 @@ where
     }
 }
 
+/// Composition of two transforms. The transforms are applied in the same order they are listed
+/// in a tuple.
 impl<F, G, Pix: Pixel> PixelTransform<Pix> for (F, G)
 where
     F: PixelTransform<Pix>,
@@ -45,6 +72,7 @@ where
     }
 }
 
+/// Transform that negates the value of each pixel of the input image.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Negative;
 
@@ -57,6 +85,8 @@ impl PixelTransform<Luma<u8>> for Negative {
     }
 }
 
+/// Transform that smooths the value of each pixel of the input image using cubic
+/// Hermite interpolation (aka `smoothstep` from GLSL / OpenCL).
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Smoothstep;
 
@@ -72,6 +102,7 @@ impl PixelTransform<Luma<u8>> for Smoothstep {
     }
 }
 
+/// Transform that colorizes the image using a palette.
 #[derive(Debug, Clone)]
 pub struct Palette<T> {
     pixels: [T; 256],
@@ -81,6 +112,13 @@ impl<T> Palette<T>
 where
     T: Pixel<Subpixel = u8> + 'static,
 {
+    /// Creates a palette based on the provided color stops. The provided `colors` are distributed
+    /// at equal distances along the palette. Intermediate colors are obtained
+    /// by linear interpolation between the two nearest color stops.
+    ///
+    /// # Panics
+    ///
+    /// - Panics if the number of `colors` is less than 2 or greater than 256.
     #[allow(
         clippy::cast_precision_loss,
         clippy::cast_possible_truncation,
@@ -132,12 +170,19 @@ impl<Pix: Pixel + 'static> PixelTransform<Luma<u8>> for Palette<Pix> {
     }
 }
 
+/// Trait allowing to lazily apply one or more [`PixelTransform`]s to an image.
+///
+/// This trait is implemented for [`ImageBuffer`]s and for [`ImageAndTransform`]s, allowing
+/// to chain transforms.
 pub trait ApplyTransform<Pix: Pixel, F> {
+    /// Combined transform after applying `transform`.
     type CombinedTransform: PixelTransform<Pix>;
-
+    /// Appends `transform` to the list of transforms to be performed on the source image.
     fn apply(self, transform: F) -> ImageAndTransform<Pix, Self::CombinedTransform>;
 }
 
+/// Source image together with one or more [`PixelTransform`]s. Transforms are applied lazily,
+/// once [`Self::transform()`] is called.
 #[derive(Debug)]
 pub struct ImageAndTransform<Pix, F>
 where
@@ -153,6 +198,7 @@ where
     F: PixelTransform<Pix>,
     <F::Output as Pixel>::Subpixel: 'static,
 {
+    /// Applies transforms accumulated in this object to the source image.
     pub fn transform(&self) -> ImageBuffer<F::Output, Vec<<F::Output as Pixel>::Subpixel>> {
         let mut output = ImageBuffer::new(self.source_image.width(), self.source_image.height());
 

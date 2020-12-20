@@ -151,6 +151,16 @@ pub trait Render {
 
     /// Renders the Julia set with the specified parameters.
     ///
+    /// The rendered image is grayscale; each pixel represents the number of iterations to reach
+    /// infinity [as per the Julia set boundary definition](index.html#theory). This number is
+    /// normalized to the `[0, 255]` range regardless of the maximum iteration count from `params`.
+    ///
+    /// You can use the [`transform`] module and/or tools from the [`image`] / [`imageproc`] crates
+    /// to post-process the image.
+    ///
+    /// [`image`]: https://crates.io/crates/image
+    /// [`imageproc`]: https://crates.io/crates/imageproc
+    ///
     /// # Errors
     ///
     /// May return an error if the backend does not support rendering with the specified params
