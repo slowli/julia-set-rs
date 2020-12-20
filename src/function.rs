@@ -62,6 +62,7 @@ pub(crate) enum UnaryFunction {
     Arg,
     Sqrt,
     Exp,
+    Log,
     Sinh,
     Cosh,
     Tanh,
@@ -77,6 +78,7 @@ impl UnaryFunction {
             Self::Arg => "arg",
             Self::Sqrt => "sqrt",
             Self::Exp => "exp",
+            Self::Log => "log",
             Self::Sinh => "sinh",
             Self::Cosh => "cosh",
             Self::Tanh => "tanh",
@@ -92,6 +94,7 @@ impl UnaryFunction {
             Self::Arg => Complex32::new(arg.arg(), 0.0),
             Self::Sqrt => arg.sqrt(),
             Self::Exp => arg.exp(),
+            Self::Log => arg.ln(),
             Self::Sinh => arg.sinh(),
             Self::Cosh => arg.cosh(),
             Self::Tanh => arg.tanh(),
@@ -110,6 +113,7 @@ impl FromStr for UnaryFunction {
             "arg" => Ok(Self::Arg),
             "sqrt" => Ok(Self::Sqrt),
             "exp" => Ok(Self::Exp),
+            "log" => Ok(Self::Log),
             "sinh" => Ok(Self::Sinh),
             "cosh" => Ok(Self::Cosh),
             "tanh" => Ok(Self::Tanh),
@@ -410,7 +414,7 @@ impl Context {
 /// as the (only) argument. A function may use arithmetic operations (`+`, `-`, `*`, `/`, `^`)
 /// and/or predefined unary functions:
 ///
-/// - General functions: `arg`, `sqrt`, `exp`
+/// - General functions: `arg`, `sqrt`, `exp`, `log`
 /// - Hyperbolic trigonometry: `sinh`, `cosh`, `tanh`
 /// - Inverse hyperbolic trigonometry: `asinh`, `acosh`, `atanh`
 ///

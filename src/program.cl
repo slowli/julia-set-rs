@@ -34,6 +34,10 @@ float2 complex_exp(float2 a) {
     return (float2)(cos(a.y), sin(a.y)) * exp(a.x);
 }
 
+float2 complex_log(float2 a) {
+    return (float2)(log(length(a)), atan2(a.y, a.x));
+}
+
 float2 complex_pow(float2 a, float2 b) {
     float arg = b.x * atan2(a.y, a.x);
     float magn = pow(length(a), b.x);

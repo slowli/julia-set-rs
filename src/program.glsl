@@ -26,6 +26,10 @@ vec2 complex_exp(vec2 a) {
     return vec2(cos(a.y), sin(a.y)) * exp(a.x);
 }
 
+vec2 complex_log(vec2 a) {
+    return vec2(log(length(a)), atan(a.y, a.x));
+}
+
 vec2 complex_pow(vec2 a, vec2 b) {
     float arg = b.x * atan(a.y, a.x);
     float magn = pow(length(a), b.x);
