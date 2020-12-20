@@ -119,6 +119,7 @@ mod cpu;
 mod function;
 #[cfg(feature = "opencl_backend")]
 mod opencl;
+pub mod transform;
 #[cfg(feature = "vulkan_backend")]
 mod vulkan;
 
