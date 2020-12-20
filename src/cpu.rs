@@ -25,21 +25,6 @@ impl<F: ComputePoint> Backend<F> for Cpu {
     }
 }
 
-const MAX_ITERATIONS: usize = 100;
-
-// FIXME: Do not apply by default
-fn smoothstep(low_bound: f32, high_bound: f32, x: f32) -> f32 {
-    let clamped_x = if x < low_bound {
-        low_bound
-    } else if x > high_bound {
-        high_bound
-    } else {
-        x
-    };
-
-    clamped_x * clamped_x * (3.0 - 2.0 * clamped_x)
-}
-
 #[derive(Debug, Clone, Copy)]
 struct CpuParams {
     image_size: [u32; 2],
@@ -47,9 +32,11 @@ struct CpuParams {
     view_size: [f32; 2],
     view_center: Complex32,
     inf_distance_sq: f32,
+    max_iterations: u8,
 }
 
 impl CpuParams {
+    #[allow(clippy::cast_precision_loss)] // The loss of precision is acceptable
     fn new(params: &Params) -> Self {
         Self {
             image_size: params.image_size,
@@ -57,9 +44,11 @@ impl CpuParams {
             view_size: [params.view_width(), params.view_height],
             view_center: Complex32::new(params.view_center[0], params.view_center[1]),
             inf_distance_sq: params.inf_distance * params.inf_distance,
+            max_iterations: params.max_iterations,
         }
     }
 
+    #[allow(clippy::cast_precision_loss)] // The loss of precision is acceptable
     fn map_pixel(self, pixel_row: u32, pixel_col: u32) -> Complex32 {
         let [width, height] = self.image_size_f32;
         let [view_width, view_height] = self.view_size;
@@ -98,14 +87,15 @@ impl<F: ComputePoint> CpuProgram<F> {
         Self { function }
     }
 
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     fn compute_row(&self, params: CpuParams, pixel_row: u32) -> Vec<u8> {
         let [image_width, _] = params.image_size;
 
         let pixels = (0..image_width).map(|pixel_col| {
             let mut z = params.map_pixel(pixel_row, pixel_col);
-            let mut iter = MAX_ITERATIONS;
+            let mut iter = params.max_iterations;
 
-            for i in 0..MAX_ITERATIONS {
+            for i in 0..params.max_iterations {
                 z = self.function.compute_point(z);
                 if z.is_nan() || z.is_infinite() || z.norm_sqr() > params.inf_distance_sq {
                     iter = i;
@@ -113,9 +103,8 @@ impl<F: ComputePoint> CpuProgram<F> {
                 }
             }
 
-            let color = iter as f32 / MAX_ITERATIONS as f32;
-            let color = smoothstep(0.0, 1.0, 1.0 - color);
-            (color * 255.0).round() as u8
+            let color = f32::from(iter) / f32::from(params.max_iterations);
+            (color * 255.0).round() as u8 // cannot truncate or lose sign by construction
         });
         pixels.collect()
     }
@@ -181,25 +170,10 @@ mod dynamic {
                     _ => unreachable!(),
                 }
             }
-            Evaluated::FunctionCall { name, args } => {
-                let evaluated_args: Vec<_> = args.iter().map(|arg| eval(arg, variables)).collect();
-                eval_fn(name, &evaluated_args)
+            Evaluated::FunctionCall { function, arg } => {
+                let evaluated_arg = eval(arg, variables);
+                function.eval(evaluated_arg)
             }
-        }
-    }
-
-    fn eval_fn(name: &str, args: &[Complex32]) -> Complex32 {
-        match name {
-            "arg" => Complex32::new(args[0].arg(), 0.0),
-            "sqrt" => args[0].sqrt(),
-            "exp" => args[0].exp(),
-            "sinh" => args[0].sinh(),
-            "cosh" => args[0].cosh(),
-            "tanh" => args[0].tanh(),
-            "asinh" => args[0].asinh(),
-            "acosh" => args[0].acosh(),
-            "atanh" => args[0].atanh(),
-            _ => unreachable!("Checked during compilation"),
         }
     }
 

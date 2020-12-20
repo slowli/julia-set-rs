@@ -1,4 +1,4 @@
-#define MAX_ITERATIONS 100
+#define MAX_ITERATIONS 255
 
 struct __attribute__((packed)) Params {
     // View center coordinates.
@@ -7,6 +7,8 @@ struct __attribute__((packed)) Params {
     float2 view_size;
     // Square of the infinity distance.
     float inf_distance_sq;
+    // Actual iterations restriction.
+    uchar max_iterations;
 };
 
 float2 complex_arg(float2 a) {
@@ -30,6 +32,10 @@ float2 complex_div(float2 a, float2 b) {
 
 float2 complex_exp(float2 a) {
     return (float2)(cos(a.y), sin(a.y)) * exp(a.x);
+}
+
+float2 complex_log(float2 a) {
+    return (float2)(log(length(a)), atan2(a.y, a.x));
 }
 
 float2 complex_pow(float2 a, float2 b) {
@@ -103,17 +109,23 @@ __kernel void julia(
     z *= (float2)(1, -1); // flip the imaginary coordinate
     z = z * params.view_size + params.view_center;
 
-    uchar iter = MAX_ITERATIONS;
+    uchar iter = params.max_iterations;
     __attribute__((opencl_unroll_hint))
     for (uchar i = 0; i < MAX_ITERATIONS; i++) {
         z = compute(z);
-        if (z.x * z.x + z.y * z.y > params.inf_distance_sq) {
+
+        float z_sq_magnitude = z.x * z.x + z.y * z.y;
+        if (
+            isnan(z_sq_magnitude) ||
+            isinf(z_sq_magnitude) ||
+            z_sq_magnitude > params.inf_distance_sq ||
+            i >= params.max_iterations
+        ) {
             iter = i;
             break;
         }
     }
 
-    float color = (float) iter / MAX_ITERATIONS;
-    color = smoothstep(0.0f, 1.0f, 1.0f - color); // FIXME: Get rid of smoothstep
+    float color = (float) iter / params.max_iterations;
     output[pixel_y * w + pixel_x] = round(color * 255);
 }

@@ -41,7 +41,9 @@
 //! a string presentation, e.g., `"z * z - 0.4i"`. The [`arithmetic-parser`] crate is used for this
 //! purpose. For `cpu_backend`, the function is defined directly in Rust.
 //!
-//! For efficiency and modularity, a [`Backend`] creates .
+//! For efficiency and modularity, a [`Backend`] creates a *program* for each function.
+//! (In case of OpenCL, a program is a kernel, and in Vulkan a program is a compute shader.)
+//! The program can then be [`Render`]ed with various [`Params`].
 //!
 //! Backends targeting GPUs (i.e., `OpenCl` and `Vulkan`) should be much faster than CPU-based
 //! backends. Indeed, the rendering task is [embarrassingly parallel] (could be performed
@@ -89,7 +91,14 @@
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(html_root_url = "https://docs.rs/julia-set/0.1.0")]
-#![warn(missing_docs, missing_debug_implementations)]
+#![warn(missing_docs, missing_debug_implementations, bare_trait_objects)]
+#![warn(clippy::all, clippy::pedantic)]
+#![allow(
+    clippy::missing_errors_doc,
+    clippy::must_use_candidate,
+    clippy::module_name_repetitions,
+    clippy::doc_markdown
+)]
 
 use std::fmt;
 
@@ -110,6 +119,7 @@ mod cpu;
 mod function;
 #[cfg(feature = "opencl_backend")]
 mod opencl;
+pub mod transform;
 #[cfg(feature = "vulkan_backend")]
 mod vulkan;
 
@@ -141,6 +151,16 @@ pub trait Render {
 
     /// Renders the Julia set with the specified parameters.
     ///
+    /// The rendered image is grayscale; each pixel represents the number of iterations to reach
+    /// infinity [as per the Julia set boundary definition](index.html#theory). This number is
+    /// normalized to the `[0, 255]` range regardless of the maximum iteration count from `params`.
+    ///
+    /// You can use the [`transform`] module and/or tools from the [`image`] / [`imageproc`] crates
+    /// to post-process the image.
+    ///
+    /// [`image`]: https://crates.io/crates/image
+    /// [`imageproc`]: https://crates.io/crates/imageproc
+    ///
     /// # Errors
     ///
     /// May return an error if the backend does not support rendering with the specified params
@@ -152,17 +172,23 @@ pub trait Render {
 ///
 /// The parameters are:
 ///
-/// - **Image dimensions** (in pixels)
-/// - **View dimensions** and **view center** determine the rendered area. (Only the view height
+/// - Image dimensions (in pixels)
+/// - View dimensions and view center determining the rendered area. (Only the view height
 ///   is specified explicitly; the width is inferred from the height and
 ///   the image dimension ratio.)
-/// - **Infinity distance** (see the [Julia set definition] for more details)
+/// - Infinity distance
+/// - Upper bound on the iteration count
+///
+/// See the [Julia set theory] for more details regarding these parameters.
+///
+/// [Julia set theory]: index.html#theory
 #[derive(Debug, Clone)]
 pub struct Params {
     view_center: [f32; 2],
     view_height: f32,
     inf_distance: f32,
     image_size: [u32; 2],
+    max_iterations: u8,
 }
 
 impl Params {
@@ -191,6 +217,7 @@ impl Params {
             view_height,
             inf_distance: 3.0,
             image_size: image_dimensions,
+            max_iterations: 100,
         }
     }
 
@@ -211,11 +238,23 @@ impl Params {
         self
     }
 
+    /// Sets the maximum iteration count.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `max_iterations` is zero.
+    pub fn with_max_iterations(mut self, max_iterations: u8) -> Self {
+        assert_ne!(max_iterations, 0, "Max iterations must be positive");
+        self.max_iterations = max_iterations;
+        self
+    }
+
     #[cfg(any(
         feature = "cpu_backend",
         feature = "opencl_backend",
         feature = "vulkan_backend"
     ))]
+    #[allow(clippy::cast_precision_loss)] // loss of precision is acceptable
     pub(crate) fn view_width(&self) -> f32 {
         self.view_height * (self.image_size[0] as f32) / (self.image_size[1] as f32)
     }

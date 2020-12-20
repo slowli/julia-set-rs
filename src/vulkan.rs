@@ -112,6 +112,7 @@ struct VulkanParams {
     view_center: [f32; 2],
     view_size: [f32; 2],
     inf_distance_sq: f32,
+    max_iterations: u32,
 }
 
 /// Backend based on [Vulkan].
@@ -205,6 +206,7 @@ impl Render for VulkanProgram {
             view_center: params.view_center,
             view_size: [params.view_width(), params.view_height],
             inf_distance_sq: params.inf_distance * params.inf_distance,
+            max_iterations: u32::from(params.max_iterations),
         };
         let params_buffer = CpuAccessibleBuffer::from_data(
             self.device.clone(),
