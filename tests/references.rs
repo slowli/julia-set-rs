@@ -1,4 +1,10 @@
 //! Reference plots for different backends.
+//!
+//! Use the `SNAPSHOT_UPDATE` to generate / update snapshot images:
+//!
+//! ```bash
+//! SNAPSHOT_UPDATE=1 cargo run test --test references --features cpu_backend
+//! ```
 
 use image::{DynamicImage, ImageError};
 
