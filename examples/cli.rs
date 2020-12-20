@@ -227,7 +227,7 @@ impl FromStr for NamedLumaTransform {
         match s {
             "neg" | "negative" => Ok(Self::Negative),
             "smooth" | "smoothstep" => Ok(Self::Smoothstep),
-            _ => Err(anyhow!("Invalid transform")),
+            _ => Err(anyhow!("Invalid transform: {}", s)),
         }
     }
 }
@@ -248,10 +248,16 @@ impl FromStr for NamedLumaTransforms {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> anyhow::Result<Self> {
-        s.split(',')
-            .map(|part| part.trim().parse::<NamedLumaTransform>())
-            .collect::<anyhow::Result<Vec<_>>>()
-            .map(Self)
+        let trimmed = s.trim();
+        if trimmed.is_empty() {
+            Ok(Self(vec![]))
+        } else {
+            trimmed
+                .split(',')
+                .map(|part| part.trim().parse::<NamedLumaTransform>())
+                .collect::<anyhow::Result<Vec<_>>>()
+                .map(Self)
+        }
     }
 }
 
