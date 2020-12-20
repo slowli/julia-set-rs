@@ -25,19 +25,6 @@ impl<F: ComputePoint> Backend<F> for Cpu {
     }
 }
 
-// FIXME: Do not apply by default
-fn smoothstep(low_bound: f32, high_bound: f32, x: f32) -> f32 {
-    let clamped_x = if x < low_bound {
-        low_bound
-    } else if x > high_bound {
-        high_bound
-    } else {
-        x
-    };
-
-    clamped_x * clamped_x * (3.0 - 2.0 * clamped_x)
-}
-
 #[derive(Debug, Clone, Copy)]
 struct CpuParams {
     image_size: [u32; 2],
@@ -117,7 +104,6 @@ impl<F: ComputePoint> CpuProgram<F> {
             }
 
             let color = f32::from(iter) / f32::from(params.max_iterations);
-            let color = smoothstep(0.0, 1.0, 1.0 - color);
             (color * 255.0).round() as u8 // cannot truncate or lose sign by construction
         });
         pixels.collect()
