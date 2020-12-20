@@ -21,6 +21,8 @@
 
 use image::{ImageBuffer, Luma, Pixel};
 
+use std::fmt;
+
 /// Pixel-wise transform.
 ///
 /// The function defined by the transform is applied separately to each pixel of the source image.
@@ -103,9 +105,18 @@ impl PixelTransform<Luma<u8>> for Smoothstep {
 }
 
 /// Transform that colorizes the image using a palette.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Palette<T> {
     pixels: [T; 256],
+}
+
+impl<T: fmt::Debug> fmt::Debug for Palette<T> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("Palette")
+            .field("pixels", &(&self.pixels as &[T]))
+            .finish()
+    }
 }
 
 impl<T> Palette<T>
