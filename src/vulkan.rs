@@ -17,7 +17,7 @@ use vulkano::{
     sync::{self, GpuFuture},
 };
 
-use std::{ffi::CStr, iter, sync::Arc};
+use std::{ffi::CStr, iter, slice, sync::Arc};
 
 use crate::{compiler::Compiler, Backend, Function, ImageBuffer, Params, Render};
 
@@ -188,17 +188,17 @@ impl Render for VulkanProgram {
     #[allow(clippy::cast_possible_truncation)]
     fn render(&self, params: &Params) -> anyhow::Result<ImageBuffer> {
         // Bind uniforms: the output image buffer and the rendering params.
-        let pixel_count = params.image_size[0] * params.image_size[1];
+        let pixel_count = (params.image_size[0] * params.image_size[1]) as usize;
         let image_buffer = unsafe {
-            // FIXME: Do we need `u32` alignment here?
-            CpuAccessibleBuffer::<[u8]>::uninitialized_array(
+            CpuAccessibleBuffer::<[u32]>::uninitialized_array(
                 self.device.clone(),
-                pixel_count as usize,
+                (pixel_count + 3) / 4,
                 BufferUsage {
                     storage_buffer: true,
+                    transfer_destination: true,
                     ..BufferUsage::none()
                 },
-                false,
+                true,
             )
         }?;
 
@@ -231,7 +231,9 @@ impl Render for VulkanProgram {
             (params.image_size[1] + LOCAL_WORKGROUP_SIZES[1] - 1) / LOCAL_WORKGROUP_SIZES[1],
             1,
         ];
-        command_buffer.dispatch(task_dimensions, self.pipeline.clone(), descriptor_set, ())?;
+        command_buffer
+            .fill_buffer(image_buffer.clone(), 0)?
+            .dispatch(task_dimensions, self.pipeline.clone(), descriptor_set, ())?;
         let command_buffer = command_buffer.build()?;
         sync::now(self.device.clone())
             .then_execute(self.queue.clone(), command_buffer)?
@@ -240,6 +242,13 @@ impl Render for VulkanProgram {
 
         // Convert the buffer into an `ImageBuffer`.
         let buffer_content = image_buffer.read()?;
+        debug_assert!(buffer_content.len() * 4 >= pixel_count);
+        let buffer_content = unsafe {
+            // SAFETY: Buffer length is correct by construction, and `[u8]` doesn't require
+            // any special alignment.
+            slice::from_raw_parts(buffer_content.as_ptr() as *const u8, pixel_count)
+        };
+
         Ok(ImageBuffer::from_vec(
             params.image_size[0],
             params.image_size[1],
