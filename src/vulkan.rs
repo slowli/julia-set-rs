@@ -166,7 +166,7 @@ impl VulkanProgram {
         let entry_point_name = CStr::from_bytes_with_nul(b"main\0").unwrap();
         let entry_point = unsafe { shader.compute_entry_point(entry_point_name, Layout) };
 
-        let pipeline = ComputePipeline::new(device.clone(), &entry_point, &())?;
+        let pipeline = ComputePipeline::new(device.clone(), &entry_point, &(), None)?;
         let layout = pipeline
             .layout()
             .descriptor_set_layout(0)
