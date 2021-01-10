@@ -49,10 +49,10 @@ required-features = ["dyn_cpu_backend"]
 # seemingly doesn't allow to express this.
 
 [[bench]]
-name = "render"
+name = "basics"
 harness = false
 required-features = ["dyn_cpu_backend"]
-path = "benches/render.rs"
+path = "benches/basics.rs"
 
 # Speed up snapshot testing.
 [profile.dev.package.julia-set]

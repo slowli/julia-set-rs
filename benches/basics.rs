@@ -1,4 +1,6 @@
-use criterion::{criterion_group, criterion_main, Bencher, Criterion};
+//! Benchmarks for parsing, compiling and rendering Julia sets on all supported backends.
+
+use criterion::{criterion_group, criterion_main, Bencher, Benchmark, Criterion};
 use num_complex::Complex32;
 
 use std::fmt;
@@ -77,6 +79,45 @@ impl fmt::Display for BackendName {
     }
 }
 
+fn parse_benches(criterion: &mut Criterion) {
+    criterion
+        .bench_function("cubic/parse", |bencher| {
+            bencher.iter(|| "z * z * z - 0.39".parse::<Function>().unwrap())
+        })
+        .bench_function("flower/parse", |bencher| {
+            bencher.iter(|| "0.8*z + z/atanh(z^-4)".parse::<Function>().unwrap())
+        })
+        .bench_function("hills/parse", |bencher| {
+            bencher.iter(|| {
+                "1i * acosh(cosh(1i * z) - arg(z)^-2) - 0.05 + 0.05i"
+                    .parse::<Function>()
+                    .unwrap()
+            })
+        });
+}
+
+fn compile_benches(criterion: &mut Criterion) {
+    #[cfg(feature = "opencl_backend")]
+    criterion.bench(
+        "compile_cubic",
+        Benchmark::new("opencl", |bencher| {
+            let function: Function = "z * z * z - 0.39".parse::<Function>().unwrap();
+            bencher.iter(|| julia_set::OpenCl.create_program(&function).unwrap());
+        })
+        .sample_size(SAMPLE_SIZE),
+    );
+
+    #[cfg(feature = "vulkan_backend")]
+    criterion.bench(
+        "compile_cubic",
+        Benchmark::new("vulkan", |bencher| {
+            let function: Function = "z * z * z - 0.39".parse::<Function>().unwrap();
+            bencher.iter(|| julia_set::Vulkan.create_program(&function).unwrap());
+        })
+        .sample_size(SAMPLE_SIZE),
+    );
+}
+
 fn bench_function(
     criterion: &mut Criterion,
     fn_name: &str,
@@ -125,5 +166,5 @@ fn render_benches(criterion: &mut Criterion) {
     );
 }
 
-criterion_group!(benches, render_benches);
+criterion_group!(benches, parse_benches, compile_benches, render_benches);
 criterion_main!(benches);
