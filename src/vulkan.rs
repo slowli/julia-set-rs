@@ -21,7 +21,7 @@ use std::{ffi::CStr, iter, slice, sync::Arc};
 
 use crate::{compiler::Compiler, Backend, Function, ImageBuffer, Params, Render};
 
-const PROGRAM: &str = include_str!("program.glsl");
+const PROGRAM: &str = include_str!(concat!(env!("OUT_DIR"), "/program.glsl"));
 
 const LOCAL_WORKGROUP_SIZES: [u32; 2] = [16, 16];
 

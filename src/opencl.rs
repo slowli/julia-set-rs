@@ -8,7 +8,7 @@ use std::sync::Mutex;
 
 use crate::{compiler::Compiler, Backend, Function, ImageBuffer, Params, Render};
 
-const PROGRAM: &str = include_str!("program.cl");
+const PROGRAM: &str = include_str!(concat!(env!("OUT_DIR"), "/program.cl"));
 
 /// Backend based on [OpenCL].
 ///
