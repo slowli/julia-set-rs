@@ -156,7 +156,7 @@ where
             let prev_color = colors[prev_color_idx].channels();
             let next_color = colors[prev_color_idx + 1].channels();
             let blend_factor = float_i - prev_color_idx as f32;
-            debug_assert!(blend_factor >= 0.0 && blend_factor <= 1.0);
+            debug_assert!((0.0..=1.0).contains(&blend_factor));
 
             let mut blended_channels = [0_u8; 4];
             let channel_count = T::CHANNEL_COUNT as usize;

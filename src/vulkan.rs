@@ -6,27 +6,24 @@ use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},
     command_buffer::AutoCommandBufferBuilder,
     descriptor::{
-        descriptor::{
-            DescriptorBufferDesc, DescriptorDesc, DescriptorDescTy, DescriptorImageDesc,
-            DescriptorImageDescArray, DescriptorImageDescDimensions, ShaderStages,
-        },
+        descriptor::{DescriptorBufferDesc, DescriptorDesc, DescriptorDescTy, ShaderStages},
         descriptor_set::{PersistentDescriptorSet, UnsafeDescriptorSetLayout},
         pipeline_layout::{PipelineLayout, PipelineLayoutDesc, PipelineLayoutDescPcRange},
         PipelineLayoutAbstract,
     },
     device::{Device, DeviceExtensions, Queue},
-    format::Format,
-    image::{Dimensions, StorageImage},
     instance::{Instance, InstanceExtensions, PhysicalDevice, QueueFamily},
     pipeline::{shader::ShaderModule, ComputePipeline},
     sync::{self, GpuFuture},
 };
 
-use std::{ffi::CStr, iter, sync::Arc};
+use std::{ffi::CStr, iter, slice, sync::Arc};
 
 use crate::{compiler::Compiler, Backend, Function, ImageBuffer, Params, Render};
 
 const PROGRAM: &str = include_str!("program.glsl");
+
+const LOCAL_WORKGROUP_SIZES: [u32; 2] = [16, 16];
 
 fn compile_shader(function: &str) -> shaderc::Result<CompilationArtifact> {
     let mut compiler = shaderc::Compiler::new().ok_or_else(|| {
@@ -71,12 +68,9 @@ unsafe impl PipelineLayoutDesc for Layout {
 
         match (set, binding) {
             (0, 0) => Some(DescriptorDesc {
-                ty: DescriptorDescTy::Image(DescriptorImageDesc {
-                    sampled: false,
-                    dimensions: DescriptorImageDescDimensions::TwoDimensional,
-                    format: Some(Format::R8Unorm),
-                    multisampled: false,
-                    array_layers: DescriptorImageDescArray::NonArrayed,
+                ty: DescriptorDescTy::Buffer(DescriptorBufferDesc {
+                    dynamic: Some(false),
+                    storage: true,
                 }),
                 array_count: 1,
                 stages,
@@ -111,6 +105,7 @@ unsafe impl PipelineLayoutDesc for Layout {
 struct VulkanParams {
     view_center: [f32; 2],
     view_size: [f32; 2],
+    image_size: [u32; 2],
     inf_distance_sq: f32,
     max_iterations: u32,
 }
@@ -171,7 +166,7 @@ impl VulkanProgram {
         let entry_point_name = CStr::from_bytes_with_nul(b"main\0").unwrap();
         let entry_point = unsafe { shader.compute_entry_point(entry_point_name, Layout) };
 
-        let pipeline = ComputePipeline::new(device.clone(), &entry_point, &())?;
+        let pipeline = ComputePipeline::new(device.clone(), &entry_point, &(), None)?;
         let layout = pipeline
             .layout()
             .descriptor_set_layout(0)
@@ -190,21 +185,27 @@ impl VulkanProgram {
 impl Render for VulkanProgram {
     type Error = anyhow::Error;
 
+    #[allow(clippy::cast_possible_truncation)]
     fn render(&self, params: &Params) -> anyhow::Result<ImageBuffer> {
-        // Bind uniforms: the output image and the rendering params.
-        let image = StorageImage::new(
-            self.device.clone(),
-            Dimensions::Dim2d {
-                width: params.image_size[0],
-                height: params.image_size[1],
-            },
-            Format::R8Unorm,
-            Some(self.queue.family()),
-        )?;
+        // Bind uniforms: the output image buffer and the rendering params.
+        let pixel_count = (params.image_size[0] * params.image_size[1]) as usize;
+        let image_buffer = unsafe {
+            CpuAccessibleBuffer::<[u32]>::uninitialized_array(
+                self.device.clone(),
+                (pixel_count + 3) / 4,
+                BufferUsage {
+                    storage_buffer: true,
+                    transfer_destination: true,
+                    ..BufferUsage::none()
+                },
+                true,
+            )
+        }?;
 
         let gl_params = VulkanParams {
             view_center: params.view_center,
             view_size: [params.view_width(), params.view_height],
+            image_size: params.image_size,
             inf_distance_sq: params.inf_distance * params.inf_distance,
             max_iterations: u32::from(params.max_iterations),
         };
@@ -216,37 +217,39 @@ impl Render for VulkanProgram {
         )?;
 
         let descriptor_set = PersistentDescriptorSet::start(self.layout.clone())
-            .add_image(image.clone())?
+            .add_buffer(image_buffer.clone())?
             .add_buffer(params_buffer)?
             .build()?;
-
-        // Create the buffer for the output image.
-        let pixel_count = params.image_size[0] * params.image_size[1];
-        let image_buffer = CpuAccessibleBuffer::from_iter(
-            self.device.clone(),
-            BufferUsage::all(),
-            false,
-            (0..pixel_count).map(|_| 0_u8),
-        )?;
 
         // Create the commands to render the image and copy it to the buffer.
         let mut command_buffer = AutoCommandBufferBuilder::primary_one_time_submit(
             self.device.clone(),
             self.queue.family(),
         )?;
-        let task_dimensions = [params.image_size[0], params.image_size[1], 1];
+        let task_dimensions = [
+            (params.image_size[0] + LOCAL_WORKGROUP_SIZES[0] - 1) / LOCAL_WORKGROUP_SIZES[0],
+            (params.image_size[1] + LOCAL_WORKGROUP_SIZES[1] - 1) / LOCAL_WORKGROUP_SIZES[1],
+            1,
+        ];
         command_buffer
-            .dispatch(task_dimensions, self.pipeline.clone(), descriptor_set, ())?
-            .copy_image_to_buffer(image, image_buffer.clone())?;
+            .fill_buffer(image_buffer.clone(), 0)?
+            .dispatch(task_dimensions, self.pipeline.clone(), descriptor_set, ())?;
         let command_buffer = command_buffer.build()?;
-        let task = sync::now(self.device.clone())
+        sync::now(self.device.clone())
             .then_execute(self.queue.clone(), command_buffer)?
-            .then_signal_fence_and_flush()?;
-        task.wait(None)?;
+            .then_signal_fence_and_flush()?
+            .wait(None)?;
 
         // Convert the buffer into an `ImageBuffer`.
         let buffer_content = image_buffer.read()?;
-        Ok(ImageBuffer::from_raw(
+        debug_assert!(buffer_content.len() * 4 >= pixel_count);
+        let buffer_content = unsafe {
+            // SAFETY: Buffer length is correct by construction, and `[u8]` doesn't require
+            // any special alignment.
+            slice::from_raw_parts(buffer_content.as_ptr() as *const u8, pixel_count)
+        };
+
+        Ok(ImageBuffer::from_vec(
             params.image_size[0],
             params.image_size[1],
             buffer_content.to_vec(),
