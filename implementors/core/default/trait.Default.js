@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["julia_set"] = [{"text":"impl Default for Cpu","synthetic":false,"types":[]},{"text":"impl Default for OpenCl","synthetic":false,"types":[]},{"text":"impl Default for Negative","synthetic":false,"types":[]},{"text":"impl Default for Smoothstep","synthetic":false,"types":[]},{"text":"impl Default for Vulkan","synthetic":false,"types":[]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

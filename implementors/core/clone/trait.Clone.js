@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["julia_set"] = [{"text":"impl Clone for Cpu","synthetic":false,"types":[]},{"text":"impl Clone for Function","synthetic":false,"types":[]},{"text":"impl Clone for OpenCl","synthetic":false,"types":[]},{"text":"impl Clone for Negative","synthetic":false,"types":[]},{"text":"impl Clone for Smoothstep","synthetic":false,"types":[]},{"text":"impl&lt;T:&nbsp;Clone&gt; Clone for Palette&lt;T&gt;","synthetic":false,"types":[]},{"text":"impl Clone for Vulkan","synthetic":false,"types":[]},{"text":"impl Clone for Params","synthetic":false,"types":[]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

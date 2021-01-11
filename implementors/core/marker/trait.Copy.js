@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["julia_set"] = [{"text":"impl Copy for Cpu","synthetic":false,"types":[]},{"text":"impl Copy for OpenCl","synthetic":false,"types":[]},{"text":"impl Copy for Negative","synthetic":false,"types":[]},{"text":"impl Copy for Smoothstep","synthetic":false,"types":[]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
