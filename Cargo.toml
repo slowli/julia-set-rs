@@ -10,6 +10,11 @@ categories = ["mathematics", "multimedia::images", "rendering"]
 description = "Julia set computation and rendering"
 repository = "https://github.com/slowli/julia-set-rs"
 
+[package.metadata.docs.rs]
+all-features = true
+# Set `docsrs` to enable unstable `doc(cfg(...))` attributes.
+rustdoc-args = ["--cfg", "docsrs"]
+
 [dependencies]
 anyhow = "1.0.28"
 image = { version = "0.23.12", default-features = false, features = ["png", "jpeg"] }
