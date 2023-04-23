@@ -4,27 +4,27 @@ use anyhow::anyhow;
 use shaderc::{CompilationArtifact, CompileOptions, OptimizationLevel, ShaderKind};
 use vulkano::{
     buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage},
-    command_buffer::AutoCommandBufferBuilder,
-    device::{Device, DeviceExtensions, Queue},
+    command_buffer::{
+        allocator::{StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo},
+        AutoCommandBufferBuilder, CommandBufferUsage,
+    },
+    descriptor_set::{
+        allocator::StandardDescriptorSetAllocator, PersistentDescriptorSet, WriteDescriptorSet,
+    },
+    device::{
+        physical::{PhysicalDevice, PhysicalDeviceType},
+        Device, DeviceCreateInfo, DeviceExtensions, Queue, QueueCreateInfo, QueueFlags,
+    },
     instance::Instance,
     instance::InstanceCreateInfo,
-    pipeline::ComputePipeline,
+    memory::allocator::{AllocationCreateInfo, MemoryUsage, StandardMemoryAllocator},
+    pipeline::{ComputePipeline, Pipeline, PipelineBindPoint},
+    shader::ShaderModule,
     sync::{self, GpuFuture},
     VulkanLibrary,
 };
 
 use std::{slice, sync::Arc};
-use vulkano::command_buffer::allocator::{
-    StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo,
-};
-use vulkano::command_buffer::CommandBufferUsage;
-use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
-use vulkano::descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet};
-use vulkano::device::physical::{PhysicalDevice, PhysicalDeviceType};
-use vulkano::device::{DeviceCreateInfo, QueueCreateInfo, QueueFlags};
-use vulkano::memory::allocator::{AllocationCreateInfo, MemoryUsage, StandardMemoryAllocator};
-use vulkano::pipeline::{Pipeline, PipelineBindPoint};
-use vulkano::shader::ShaderModule;
 
 use crate::{compiler::Compiler, Backend, Function, ImageBuffer, Params, Render};
 
