@@ -11,6 +11,9 @@ categories = ["mathematics", "multimedia::images", "rendering"]
 description = "Julia set computation and rendering"
 repository = "https://github.com/slowli/julia-set-rs"
 
+[badges]
+maintenance = { status = "experimental" }
+
 [package.metadata.docs.rs]
 all-features = true
 # Set `docsrs` to enable unstable `doc(cfg(...))` attributes.

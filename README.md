@@ -97,6 +97,13 @@ hills/vulkan            time:   [586.13 µs 595.31 µs 607.83 µs]
 That is, the vast majority of time is spent on shader compilation, and rendering an image
 takes less than 1ms in Vulkan and about 10ms in OpenCL.
 
+## Project status 🚧
+
+Experimental – while the crate itself is feature-complete for what it is, it doesn't have
+convincing use cases and was written mostly for trying OpenCL and Vulkan Rust bindings
+with dynamic shader code generation. Don't hesitate to submit a feature request
+or an improvement suggestion if you find the functionality in the crate (potentially) useful.
+
 ## License
 
 Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE)
