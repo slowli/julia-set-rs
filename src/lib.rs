@@ -174,8 +174,7 @@ pub trait Render {
 ///
 /// - Image dimensions (in pixels)
 /// - View dimensions and view center determining the rendered area. (Only the view height
-///   is specified explicitly; the width is inferred from the height and
-///   the image dimension ratio.)
+///   is specified explicitly; the width is inferred from the height and the image dimension ratio.)
 /// - Infinity distance
 /// - Upper bound on the iteration count
 ///
@@ -262,3 +261,6 @@ impl Params {
         self.view_height * (self.image_size[0] as f32) / (self.image_size[1] as f32)
     }
 }
+
+#[cfg(doctest)]
+doc_comment::doctest!("../README.md");
