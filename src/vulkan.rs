@@ -84,6 +84,9 @@ pub struct VulkanProgram {
     device: Arc<Device>,
     queue: Arc<Queue>,
     pipeline: Arc<ComputePipeline>,
+    memory_allocator: StandardMemoryAllocator,
+    descriptor_set_allocator: StandardDescriptorSetAllocator,
+    command_buffer_allocator: StandardCommandBufferAllocator,
 }
 
 impl VulkanProgram {
@@ -123,11 +126,20 @@ impl VulkanProgram {
             .ok_or_else(|| anyhow!("cannot find entry point `main` in Julia set compute shader"))?;
 
         let pipeline = ComputePipeline::new(device.clone(), entry_point, &(), None, |_| {})?;
+        let memory_allocator = StandardMemoryAllocator::new_default(device.clone());
+        let descriptor_set_allocator = StandardDescriptorSetAllocator::new(device.clone());
+        let command_buffer_allocator = StandardCommandBufferAllocator::new(
+            device.clone(),
+            StandardCommandBufferAllocatorCreateInfo::default(),
+        );
 
         Ok(Self {
             device,
             queue,
             pipeline,
+            memory_allocator,
+            descriptor_set_allocator,
+            command_buffer_allocator,
         })
     }
 
@@ -168,19 +180,12 @@ impl Render for VulkanProgram {
 
     #[allow(clippy::cast_possible_truncation)]
     fn render(&self, params: &Params) -> anyhow::Result<ImageBuffer> {
-        let memory_allocator = StandardMemoryAllocator::new_default(self.device.clone());
-        let descriptor_set_allocator = StandardDescriptorSetAllocator::new(self.device.clone());
-        let command_buffer_allocator = StandardCommandBufferAllocator::new(
-            self.device.clone(),
-            StandardCommandBufferAllocatorCreateInfo::default(),
-        );
-
         // Bind uniforms: the output image buffer and the rendering params.
         let pixel_count = (params.image_size[0] * params.image_size[1]) as usize;
         let image_buffer = Buffer::new_slice::<u32>(
-            &memory_allocator,
+            &self.memory_allocator,
             BufferCreateInfo {
-                usage: BufferUsage::STORAGE_BUFFER,
+                usage: BufferUsage::STORAGE_BUFFER | BufferUsage::TRANSFER_DST,
                 ..BufferCreateInfo::default()
             },
             AllocationCreateInfo {
@@ -198,7 +203,7 @@ impl Render for VulkanProgram {
             max_iterations: u32::from(params.max_iterations),
         };
         let params_buffer = Buffer::from_data(
-            &memory_allocator,
+            &self.memory_allocator,
             BufferCreateInfo {
                 usage: BufferUsage::UNIFORM_BUFFER,
                 ..BufferCreateInfo::default()
@@ -213,7 +218,7 @@ impl Render for VulkanProgram {
         let layout = self.pipeline.layout();
         let layout = &layout.set_layouts()[0];
         let descriptor_set = PersistentDescriptorSet::new(
-            &descriptor_set_allocator,
+            &self.descriptor_set_allocator,
             layout.clone(),
             [
                 WriteDescriptorSet::buffer(0, image_buffer.clone()),
@@ -228,7 +233,7 @@ impl Render for VulkanProgram {
             1,
         ];
         let mut builder = AutoCommandBufferBuilder::primary(
-            &command_buffer_allocator,
+            &self.command_buffer_allocator,
             self.queue.queue_family_index(),
             CommandBufferUsage::OneTimeSubmit,
         )?;
@@ -240,6 +245,7 @@ impl Render for VulkanProgram {
                 0,
                 descriptor_set,
             )
+            .fill_buffer(image_buffer.clone(), 0)?
             .dispatch(task_dimensions)?;
         let command_buffer = builder.build()?;
 
