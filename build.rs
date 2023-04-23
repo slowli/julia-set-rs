@@ -1,4 +1,5 @@
 //! Compresses the shader source code, removing comments and formatting whitespace.
+//! This is useful because shader code is included into the compilation output.
 
 use std::{env, fs, path::Path};
 
@@ -39,7 +40,7 @@ fn process_line(mut line: &str) -> Option<String> {
 
 fn process_shader(input_path: &str, output_name: &str) {
     let cl_code = fs::read_to_string(input_path).expect("Cannot read shader code");
-    println!("cargo:rerun-if-changed={}", input_path);
+    println!("cargo:rerun-if-changed={input_path}");
 
     let mut processed_code = String::new();
     for line in cl_code.lines().filter_map(process_line) {

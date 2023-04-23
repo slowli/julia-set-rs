@@ -93,7 +93,7 @@ layout(set = 0, binding = 0) writeonly buffer Output {
     uint[] data;
 } output_buffer;
 
-layout(set = 0, binding = 1) uniform Params {
+layout(push_constant) uniform Params {
     vec2 view_center;
     vec2 view_size;
     uvec2 image_size;

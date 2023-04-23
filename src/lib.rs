@@ -174,8 +174,7 @@ pub trait Render {
 ///
 /// - Image dimensions (in pixels)
 /// - View dimensions and view center determining the rendered area. (Only the view height
-///   is specified explicitly; the width is inferred from the height and
-///   the image dimension ratio.)
+///   is specified explicitly; the width is inferred from the height and the image dimension ratio.)
 /// - Infinity distance
 /// - Upper bound on the iteration count
 ///
@@ -222,6 +221,7 @@ impl Params {
     }
 
     /// Sets the view center.
+    #[must_use]
     pub fn with_view_center(mut self, view_center: [f32; 2]) -> Self {
         self.view_center = view_center;
         self
@@ -232,6 +232,7 @@ impl Params {
     /// # Panics
     ///
     /// Panics if the provided distance is not positive.
+    #[must_use]
     pub fn with_infinity_distance(mut self, inf_distance: f32) -> Self {
         assert!(inf_distance > 0.0, "`inf_distance` should be positive");
         self.inf_distance = inf_distance;
@@ -243,6 +244,7 @@ impl Params {
     /// # Panics
     ///
     /// Panics if `max_iterations` is zero.
+    #[must_use]
     pub fn with_max_iterations(mut self, max_iterations: u8) -> Self {
         assert_ne!(max_iterations, 0, "Max iterations must be positive");
         self.max_iterations = max_iterations;
@@ -259,3 +261,6 @@ impl Params {
         self.view_height * (self.image_size[0] as f32) / (self.image_size[1] as f32)
     }
 }
+
+#[cfg(doctest)]
+doc_comment::doctest!("../README.md");

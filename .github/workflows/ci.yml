@@ -1,4 +1,4 @@
-name: Rust
+name: CI
 
 on:
   push:
@@ -8,9 +8,13 @@ on:
 
 env:
   # Minimum supported Rust version.
-  msrv: 1.44.0
+  msrv: 1.65.0
   # Nightly Rust toolchain for building docs.
-  nightly: nightly-2020-10-24
+  nightly: nightly-2022-11-24
+  # POCL version (see at https://github.com/pocl/pocl)
+  pocl: "3.1"
+  # LLVM version for building POCL (see POCL docs)
+  llvm: 14
 
 jobs:
   # Checks minimum supported Rust version.
@@ -18,19 +22,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
-
-      - name: Cache cargo build
-        uses: actions/cache@v1
-        with:
-          path: target
-          key: ${{ runner.os }}-msrv-cargo-build-target
+      - uses: actions/checkout@v3
 
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ env.msrv }}
           override: true
+      - name: Generate lockfile
+        uses: actions-rs/cargo@v1
+        with:
+          command: generate-lockfile
+
+      - name: Cache cargo build
+        uses: actions/cache@v3
+        with:
+          path: target
+          key: ${{ runner.os }}-msrv-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-msrv-cargo
 
       - name: Run tests
         uses: actions-rs/cargo@v1
@@ -39,56 +48,27 @@ jobs:
           args: --features dyn_cpu_backend
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Install packages for Vulkan
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-suggests --no-install-recommends \
-            cmake libvulkan-dev vulkan-utils
-
-      - name: Install packages for POCL
-        run: |
-          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          sudo add-apt-repository 'deb [arch=amd64] http://apt.llvm.org/bionic/ llvm-toolchain-bionic-9 main'
-          sudo apt-get update
-          sudo apt-get install -y --no-install-suggests --no-install-recommends \
-            build-essential cmake pkg-config libhwloc-dev zlib1g-dev \
-            ocl-icd-libopencl1 ocl-icd-dev ocl-icd-opencl-dev clinfo \
-            clang-9 libclang-9-dev llvm-9 llvm-9-dev
+            cmake libvulkan-dev vulkan-tools
 
       - name: Cache POCL binaries
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
-          path: ~/.local
-          key: ${{ runner.os }}-pocl1.5
-
+          path: /tmp/pocl-${{ env.pocl }}
+          key: ${{ runner.os }}-pocl-${{ env.pocl }}
       - name: Install POCL
-        env:
-          POCL_VER: 1.5
         run: |
-          if [[ ! -x ~/.local/pocl-$POCL_VER/build/bin/poclcc ]]; then
-            mkdir -p ~/.local && cd ~/.local
-            curl -sSL "https://github.com/pocl/pocl/archive/v$POCL_VER.tar.gz" > pocl-$POCL_VER.tar.gz
-            tar xf "pocl-$POCL_VER.tar.gz"
-            cd pocl-$POCL_VER
-            mkdir -p build && cd build
-            cmake -DWITH_LLVM_CONFIG=/usr/bin/llvm-config-9 \
-              -DCMAKE_INSTALL_PREFIX=/usr \
-              -DLLC_HOST_CPU=x86-64 ..
-            make
-          fi
-          cd ~/.local/pocl-$POCL_VER/build && sudo make install
-          clinfo
-
-      - name: Cache cargo build
-        uses: actions/cache@v1
-        with:
-          path: target
-          key: ${{ runner.os }}-cargo-build-target
+          POCL_VER=${{ env.pocl }} \
+          LLVM_VER=${{ env.llvm }} \
+          CMAKE_FLAGS=-DLLC_HOST_CPU=x86-64 ./install-pocl.sh
 
       - name: Install Rust
         uses: actions-rs/toolchain@v1
@@ -96,6 +76,17 @@ jobs:
           toolchain: stable
           override: true
           components: rustfmt,clippy
+      - name: Generate lockfile
+        uses: actions-rs/cargo@v1
+        with:
+          command: generate-lockfile
+
+      - name: Cache cargo build
+        uses: actions/cache@v3
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo
 
       - name: Format
         uses: actions-rs/cargo@v1
@@ -129,15 +120,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
-        with:
-          persist-credentials: false
-
-      - name: Cache cargo build
-        uses: actions/cache@v1
-        with:
-          path: target
-          key: ${{ runner.os }}-docs-cargo-build-target
+      - uses: actions/checkout@v3
 
       - name: Install Rust
         uses: actions-rs/toolchain@v1
@@ -145,6 +128,17 @@ jobs:
           toolchain: ${{ env.nightly }}
           profile: minimal
           override: true
+      - name: Generate lockfile
+        uses: actions-rs/cargo@v1
+        with:
+          command: generate-lockfile
+
+      - name: Cache cargo build
+        uses: actions/cache@v3
+        with:
+          path: target
+          key: ${{ runner.os }}-docs-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-docs-cargo
 
       - name: Build docs
         run: |
@@ -154,9 +148,8 @@ jobs:
             --extern-html-root-url ocl=https://docs.rs/ocl/~0.19
 
       - name: Deploy
-        uses: JamesIves/github-pages-deploy-action@releases/v3
+        uses: JamesIves/github-pages-deploy-action@v4
         with:
-          ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
-          BRANCH: gh-pages
-          FOLDER: target/doc
-          SINGLE_COMMIT: true
+          branch: gh-pages
+          folder: target/doc
+          single-commit: true

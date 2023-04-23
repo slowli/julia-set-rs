@@ -1,23 +1,30 @@
 //! GLSL / Vulkan backend for Julia sets.
 
-use anyhow::format_err;
+use anyhow::anyhow;
 use shaderc::{CompilationArtifact, CompileOptions, OptimizationLevel, ShaderKind};
 use vulkano::{
-    buffer::{BufferUsage, CpuAccessibleBuffer},
-    command_buffer::AutoCommandBufferBuilder,
-    descriptor::{
-        descriptor::{DescriptorBufferDesc, DescriptorDesc, DescriptorDescTy, ShaderStages},
-        descriptor_set::{PersistentDescriptorSet, UnsafeDescriptorSetLayout},
-        pipeline_layout::{PipelineLayout, PipelineLayoutDesc, PipelineLayoutDescPcRange},
-        PipelineLayoutAbstract,
+    buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage},
+    command_buffer::{
+        allocator::{StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo},
+        AutoCommandBufferBuilder, CommandBufferUsage,
     },
-    device::{Device, DeviceExtensions, Queue},
-    instance::{Instance, InstanceExtensions, PhysicalDevice, QueueFamily},
-    pipeline::{shader::ShaderModule, ComputePipeline},
+    descriptor_set::{
+        allocator::StandardDescriptorSetAllocator, PersistentDescriptorSet, WriteDescriptorSet,
+    },
+    device::{
+        physical::{PhysicalDevice, PhysicalDeviceType},
+        Device, DeviceCreateInfo, DeviceExtensions, Queue, QueueCreateInfo, QueueFlags,
+    },
+    instance::Instance,
+    instance::InstanceCreateInfo,
+    memory::allocator::{AllocationCreateInfo, MemoryUsage, StandardMemoryAllocator},
+    pipeline::{ComputePipeline, Pipeline, PipelineBindPoint},
+    shader::ShaderModule,
     sync::{self, GpuFuture},
+    VulkanLibrary,
 };
 
-use std::{ffi::CStr, iter, slice, sync::Arc};
+use std::{slice, sync::Arc};
 
 use crate::{compiler::Compiler, Backend, Function, ImageBuffer, Params, Render};
 
@@ -26,7 +33,7 @@ const PROGRAM: &str = include_str!(concat!(env!("OUT_DIR"), "/program.glsl"));
 const LOCAL_WORKGROUP_SIZES: [u32; 2] = [16, 16];
 
 fn compile_shader(function: &str) -> shaderc::Result<CompilationArtifact> {
-    let mut compiler = shaderc::Compiler::new().ok_or_else(|| {
+    let compiler = shaderc::Compiler::new().ok_or_else(|| {
         shaderc::Error::NullResultObject("Cannot initialize `shaderc` compiler".to_owned())
     })?;
     let mut options = CompileOptions::new().ok_or_else(|| {
@@ -43,64 +50,7 @@ fn compile_shader(function: &str) -> shaderc::Result<CompilationArtifact> {
     )
 }
 
-/// Hand-written layout spec for the compute GLSL shader.
-#[derive(Debug, Clone, Copy)]
-struct Layout;
-
-unsafe impl PipelineLayoutDesc for Layout {
-    fn num_sets(&self) -> usize {
-        1
-    }
-
-    fn num_bindings_in_set(&self, set: usize) -> Option<usize> {
-        if set == 0 {
-            Some(2)
-        } else {
-            None
-        }
-    }
-
-    fn descriptor(&self, set: usize, binding: usize) -> Option<DescriptorDesc> {
-        let stages = ShaderStages {
-            compute: true,
-            ..ShaderStages::none()
-        };
-
-        match (set, binding) {
-            (0, 0) => Some(DescriptorDesc {
-                ty: DescriptorDescTy::Buffer(DescriptorBufferDesc {
-                    dynamic: Some(false),
-                    storage: true,
-                }),
-                array_count: 1,
-                stages,
-                readonly: false,
-            }),
-
-            (0, 1) => Some(DescriptorDesc {
-                ty: DescriptorDescTy::Buffer(DescriptorBufferDesc {
-                    dynamic: Some(false),
-                    storage: false,
-                }),
-                array_count: 1,
-                stages,
-                readonly: true,
-            }),
-
-            _ => None,
-        }
-    }
-
-    fn num_push_constants_ranges(&self) -> usize {
-        0
-    }
-
-    fn push_constants_range(&self, _num: usize) -> Option<PipelineLayoutDescPcRange> {
-        None
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, BufferContents)]
 #[repr(C, packed)]
 struct VulkanParams {
     view_center: [f32; 2],
@@ -133,52 +83,95 @@ impl Backend<&Function> for Vulkan {
 pub struct VulkanProgram {
     device: Arc<Device>,
     queue: Arc<Queue>,
-    pipeline: Arc<ComputePipeline<PipelineLayout<Layout>>>,
-    layout: Arc<UnsafeDescriptorSetLayout>,
+    pipeline: Arc<ComputePipeline>,
+    memory_allocator: StandardMemoryAllocator,
+    descriptor_set_allocator: StandardDescriptorSetAllocator,
+    command_buffer_allocator: StandardCommandBufferAllocator,
 }
 
 impl VulkanProgram {
     fn new(compiled_function: &str) -> anyhow::Result<Self> {
-        let instance = Instance::new(None, &InstanceExtensions::none(), None)?;
-        let device = PhysicalDevice::enumerate(&instance)
-            .next()
-            .ok_or_else(|| format_err!("Physical device not found for instance {:?}", instance))?;
-        let queue_family = device
-            .queue_families()
-            .find(QueueFamily::supports_compute)
-            .ok_or_else(|| format_err!("No support of compute shaders on {:?}", device))?;
+        let library = VulkanLibrary::new()?;
+        let create_info = InstanceCreateInfo {
+            enumerate_portability: true,
+            ..InstanceCreateInfo::default()
+        };
+        let instance = Instance::new(library, create_info)?;
 
+        let device_extensions = DeviceExtensions {
+            khr_storage_buffer_storage_class: true,
+            ..DeviceExtensions::empty()
+        };
+        let (device, queue_family_index) =
+            Self::select_physical_device(&instance, &device_extensions)?;
         let (device, mut queues) = Device::new(
             device,
-            device.supported_features(),
-            &DeviceExtensions {
-                khr_storage_buffer_storage_class: true,
-                ..DeviceExtensions::none()
+            DeviceCreateInfo {
+                enabled_extensions: device_extensions,
+                queue_create_infos: vec![QueueCreateInfo {
+                    queue_family_index,
+                    ..QueueCreateInfo::default()
+                }],
+                ..DeviceCreateInfo::default()
             },
-            iter::once((queue_family, 0.5)),
         )?;
         let queue = queues
             .next()
-            .ok_or_else(|| format_err!("Cannot initialize compute queue on device {:?}", device))?;
+            .ok_or_else(|| anyhow!("cannot initialize compute queue on device {device:?}"))?;
 
         let shader = compile_shader(compiled_function)?;
         let shader = unsafe { ShaderModule::from_words(device.clone(), shader.as_binary())? };
-        let entry_point_name = CStr::from_bytes_with_nul(b"main\0").unwrap();
-        let entry_point = unsafe { shader.compute_entry_point(entry_point_name, Layout) };
+        let entry_point = shader
+            .entry_point("main")
+            .ok_or_else(|| anyhow!("cannot find entry point `main` in Julia set compute shader"))?;
 
-        let pipeline = ComputePipeline::new(device.clone(), &entry_point, &(), None)?;
-        let layout = pipeline
-            .layout()
-            .descriptor_set_layout(0)
-            .unwrap() // safe: we know for sure that we have 0-th descriptor set
-            .to_owned();
+        let pipeline = ComputePipeline::new(device.clone(), entry_point, &(), None, |_| {})?;
+        let memory_allocator = StandardMemoryAllocator::new_default(device.clone());
+        let descriptor_set_allocator = StandardDescriptorSetAllocator::new(device.clone());
+        let command_buffer_allocator = StandardCommandBufferAllocator::new(
+            device.clone(),
+            StandardCommandBufferAllocatorCreateInfo::default(),
+        );
 
         Ok(Self {
             device,
             queue,
-            pipeline: Arc::new(pipeline),
-            layout,
+            pipeline,
+            memory_allocator,
+            descriptor_set_allocator,
+            command_buffer_allocator,
         })
+    }
+
+    #[allow(clippy::cast_possible_truncation)]
+    fn select_physical_device(
+        instance: &Arc<Instance>,
+        device_extensions: &DeviceExtensions,
+    ) -> anyhow::Result<(Arc<PhysicalDevice>, u32)> {
+        let devices = instance.enumerate_physical_devices()?;
+        let devices =
+            devices.filter(|device| device.supported_extensions().contains(device_extensions));
+        let devices = devices.filter_map(|device| {
+            device
+                .queue_family_properties()
+                .iter()
+                .position(|q| q.queue_flags.intersects(QueueFlags::COMPUTE))
+                .map(|idx| (device, idx as u32))
+        });
+
+        let device = devices
+            .min_by_key(|(device, _)| Self::device_type_priority(device.properties().device_type));
+        device.ok_or_else(|| anyhow!("failed selecting physical device with compute queue"))
+    }
+
+    fn device_type_priority(ty: PhysicalDeviceType) -> usize {
+        match ty {
+            PhysicalDeviceType::DiscreteGpu => 0,
+            PhysicalDeviceType::IntegratedGpu => 1,
+            PhysicalDeviceType::VirtualGpu => 2,
+            PhysicalDeviceType::Cpu => 3,
+            _ => 4,
+        }
     }
 }
 
@@ -189,18 +182,18 @@ impl Render for VulkanProgram {
     fn render(&self, params: &Params) -> anyhow::Result<ImageBuffer> {
         // Bind uniforms: the output image buffer and the rendering params.
         let pixel_count = (params.image_size[0] * params.image_size[1]) as usize;
-        let image_buffer = unsafe {
-            CpuAccessibleBuffer::<[u32]>::uninitialized_array(
-                self.device.clone(),
-                (pixel_count + 3) / 4,
-                BufferUsage {
-                    storage_buffer: true,
-                    transfer_destination: true,
-                    ..BufferUsage::none()
-                },
-                true,
-            )
-        }?;
+        let image_buffer = Buffer::new_slice::<u32>(
+            &self.memory_allocator,
+            BufferCreateInfo {
+                usage: BufferUsage::STORAGE_BUFFER | BufferUsage::TRANSFER_DST,
+                ..BufferCreateInfo::default()
+            },
+            AllocationCreateInfo {
+                usage: MemoryUsage::Download,
+                ..AllocationCreateInfo::default()
+            },
+            pixel_count as u64,
+        )?;
 
         let gl_params = VulkanParams {
             view_center: params.view_center,
@@ -209,32 +202,40 @@ impl Render for VulkanProgram {
             inf_distance_sq: params.inf_distance * params.inf_distance,
             max_iterations: u32::from(params.max_iterations),
         };
-        let params_buffer = CpuAccessibleBuffer::from_data(
-            self.device.clone(),
-            BufferUsage::uniform_buffer(),
-            false,
-            gl_params,
-        )?;
 
-        let descriptor_set = PersistentDescriptorSet::start(self.layout.clone())
-            .add_buffer(image_buffer.clone())?
-            .add_buffer(params_buffer)?
-            .build()?;
+        let layout = self.pipeline.layout();
+        let layout = &layout.set_layouts()[0];
+        let descriptor_set = PersistentDescriptorSet::new(
+            &self.descriptor_set_allocator,
+            layout.clone(),
+            [WriteDescriptorSet::buffer(0, image_buffer.clone())],
+        )?;
 
         // Create the commands to render the image and copy it to the buffer.
-        let mut command_buffer = AutoCommandBufferBuilder::primary_one_time_submit(
-            self.device.clone(),
-            self.queue.family(),
-        )?;
         let task_dimensions = [
             (params.image_size[0] + LOCAL_WORKGROUP_SIZES[0] - 1) / LOCAL_WORKGROUP_SIZES[0],
             (params.image_size[1] + LOCAL_WORKGROUP_SIZES[1] - 1) / LOCAL_WORKGROUP_SIZES[1],
             1,
         ];
-        command_buffer
+        let layout = self.pipeline.layout();
+        let mut builder = AutoCommandBufferBuilder::primary(
+            &self.command_buffer_allocator,
+            self.queue.queue_family_index(),
+            CommandBufferUsage::OneTimeSubmit,
+        )?;
+        builder
+            .bind_pipeline_compute(self.pipeline.clone())
+            .bind_descriptor_sets(
+                PipelineBindPoint::Compute,
+                layout.clone(),
+                0,
+                descriptor_set,
+            )
             .fill_buffer(image_buffer.clone(), 0)?
-            .dispatch(task_dimensions, self.pipeline.clone(), descriptor_set, ())?;
-        let command_buffer = command_buffer.build()?;
+            .push_constants(layout.clone(), 0, gl_params)
+            .dispatch(task_dimensions)?;
+        let command_buffer = builder.build()?;
+
         sync::now(self.device.clone())
             .then_execute(self.queue.clone(), command_buffer)?
             .then_signal_fence_and_flush()?
@@ -246,7 +247,7 @@ impl Render for VulkanProgram {
         let buffer_content = unsafe {
             // SAFETY: Buffer length is correct by construction, and `[u8]` doesn't require
             // any special alignment.
-            slice::from_raw_parts(buffer_content.as_ptr() as *const u8, pixel_count)
+            slice::from_raw_parts(buffer_content.as_ptr().cast::<u8>(), pixel_count)
         };
 
         Ok(ImageBuffer::from_vec(
