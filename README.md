@@ -99,7 +99,12 @@ takes less than 1ms in Vulkan and about 10ms in OpenCL.
 
 ## License
 
-Licensed under the [Apache-2.0 license](LICENSE).
+Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE)
+or [MIT license](LICENSE-MIT) at your option.
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in `julia-set` by you, as defined in the Apache-2.0 license,
+shall be dual licensed as above, without any additional terms or conditions.
 
 [Julia set]: https://en.wikipedia.org/wiki/Julia_set
 [OpenCL]: https://www.khronos.org/opencl/
