@@ -149,7 +149,7 @@ mod dynamic {
         type Program = CpuProgram<Function>;
 
         fn create_program(&self, function: &Function) -> Result<Self::Program, Self::Error> {
-            Ok(CpuProgram::new(function.to_owned()))
+            Ok(CpuProgram::new(function.clone()))
         }
     }
 
@@ -194,8 +194,8 @@ mod dynamic {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::f32;
 
+    #[allow(clippy::uninlined_format_args)] // FIXME: inline after switching to 2021 edition
     fn assert_close(x: Complex32, y: Complex32) {
         assert!((x.re - y.re).abs() <= f32::EPSILON, "{:?}, {:?}", x, y);
         assert!((x.im - y.im).abs() <= f32::EPSILON, "{:?}, {:?}", x, y);

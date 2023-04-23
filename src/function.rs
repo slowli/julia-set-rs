@@ -33,8 +33,8 @@ enum ErrorSource {
 impl fmt::Display for ErrorSource {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Parse(err) => write!(formatter, "[PARSE] {}", err),
-            Self::Eval(err) => write!(formatter, "[EVAL] {}", err),
+            Self::Parse(err) => write!(formatter, "[PARSE] {err}"),
+            Self::Eval(err) => write!(formatter, "[EVAL] {err}"),
         }
     }
 }
@@ -214,12 +214,11 @@ impl Evaluated {
 
                         *inner_rhs = Box::new(Self::Value(new_rhs));
                         return lhs;
-                    } else {
-                        // Switch `inner_rhs` and `rhs`, moving a `Value` to the right.
-                        // For example, this will replace `z + 1 - z^2` to `z - z^2 + 1`.
-                        mem::swap(&mut rhs, inner_rhs);
-                        mem::swap(&mut op, inner_op);
                     }
+                    // Switch `inner_rhs` and `rhs`, moving a `Value` to the right.
+                    // For example, this will replace `z + 1 - z^2` to `z - z^2 + 1`.
+                    mem::swap(&mut rhs, inner_rhs);
+                    mem::swap(&mut op, inner_op);
                 }
             }
         }
@@ -281,7 +280,7 @@ impl Error for FnError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match &self.source {
             ErrorSource::Eval(e) => Some(e),
-            _ => None,
+            ErrorSource::Parse(_) => None,
         }
     }
 }
@@ -291,7 +290,7 @@ type FnGrammarBase = Untyped<NumGrammar<Complex32>>;
 #[derive(Debug, Clone, Copy)]
 struct FnGrammar;
 
-impl Parse for FnGrammar {
+impl Parse<'_> for FnGrammar {
     type Base = FnGrammarBase;
     const FEATURES: Features = Features::empty();
 }
@@ -334,10 +333,10 @@ impl Context {
                 }
 
                 Statement::Expr(_) => {
-                    return Err(FnError::eval(&statement, EvalError::UselessExpr));
+                    return Err(FnError::eval(statement, EvalError::UselessExpr));
                 }
 
-                _ => return Err(FnError::eval(&statement, EvalError::Unsupported)),
+                _ => return Err(FnError::eval(statement, EvalError::Unsupported)),
             }
         }
 

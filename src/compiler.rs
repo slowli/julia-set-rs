@@ -34,7 +34,7 @@ impl Compiler {
     pub fn compile(self, function: &Function) -> String {
         let mut code = String::new();
         for (var_name, value) in function.assignments() {
-            code += &format!("{} {}{} = ", self.complex_ty, VAR_PREFIX, var_name);
+            code += &format!("{} {VAR_PREFIX}{var_name} = ", self.complex_ty);
             self.compile_expr(&mut code, value);
             code += "; ";
         }
@@ -142,14 +142,14 @@ mod tests {
         assert_eq!(
             code,
             "return complex_sinh(complex_pow(z, (float2)(2, 0)) + \
-             complex_mul(z, (float2)(0, -1)));"
+             complex_mul(z, (float2)(-0, -1)));"
         );
 
         let function = "0.7 + cosh(z*z - 0.5i) * z".parse().unwrap();
         let code = Compiler::for_ocl().compile(&function);
         assert_eq!(
             code,
-            "return complex_mul(complex_cosh(complex_mul(z, z) + (float2)(0, -0.5)), z) + \
+            "return complex_mul(complex_cosh(complex_mul(z, z) + (float2)(-0, -0.5)), z) + \
              (float2)(0.7, 0);"
         );
     }
@@ -169,7 +169,7 @@ mod tests {
         assert_eq!(
             code,
             "float2 __var_d = complex_mul(complex_mul(complex_sinh(z), z), (float2)(1.1, 0)); \
-             return complex_mul(z, z) + __var_d + (float2)(-0.5, 0);"
+             return complex_mul(z, z) + __var_d + (float2)(-0.5, -0);"
         );
     }
 }

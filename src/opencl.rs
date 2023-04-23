@@ -57,7 +57,7 @@ impl OpenClProgram {
 
         let context = Context::builder()
             .platform(platform)
-            .devices(&device)
+            .devices(device)
             .build()?;
         let inner = ProQue::new(
             context.clone(),

@@ -1,4 +1,5 @@
 //! Compresses the shader source code, removing comments and formatting whitespace.
+//! This is useful because shader code is included into the compilation output.
 
 use std::{env, fs, path::Path};
 

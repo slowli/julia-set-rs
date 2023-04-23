@@ -33,14 +33,14 @@ fn compare_to_reference(reference_filename: &str, image: &ImageBuffer) {
         Ok(DynamicImage::ImageLuma8(image)) => Some(image),
         Ok(_) => panic!("Unexpected image format"),
 
-        Err(ImageError::IoError(ref io_error)) if io_error.kind() == io::ErrorKind::NotFound => {
+        Err(ImageError::IoError(io_error)) if io_error.kind() == io::ErrorKind::NotFound => {
             None
         }
         Err(other_error) => panic!("Error opening reference file: {:?}", other_error),
     };
 
-    if let Some(ref reference_image) = reference_image {
-        let image_diff = ImageDiff::new(reference_image, &image);
+    if let Some(reference_image) = &reference_image {
+        let image_diff = ImageDiff::new(reference_image, image);
         println!("{}: {:?}", reference_filename, image_diff);
         image_diff.assert_is_sound();
         return;
@@ -94,8 +94,8 @@ impl ImageDiff {
             }
         }
 
-        let differing_pixels = Self::pixel_quantity(&expected, differing_count);
-        let mean_difference = Self::pixel_quantity(&expected, total_diff);
+        let differing_pixels = Self::pixel_quantity(expected, differing_count);
+        let mean_difference = Self::pixel_quantity(expected, total_diff);
         Self {
             differing_pixels,
             mean_difference,
