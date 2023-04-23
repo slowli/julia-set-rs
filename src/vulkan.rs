@@ -202,28 +202,13 @@ impl Render for VulkanProgram {
             inf_distance_sq: params.inf_distance * params.inf_distance,
             max_iterations: u32::from(params.max_iterations),
         };
-        let params_buffer = Buffer::from_data(
-            &self.memory_allocator,
-            BufferCreateInfo {
-                usage: BufferUsage::UNIFORM_BUFFER,
-                ..BufferCreateInfo::default()
-            },
-            AllocationCreateInfo {
-                usage: MemoryUsage::Upload,
-                ..AllocationCreateInfo::default()
-            },
-            gl_params,
-        )?;
 
         let layout = self.pipeline.layout();
         let layout = &layout.set_layouts()[0];
         let descriptor_set = PersistentDescriptorSet::new(
             &self.descriptor_set_allocator,
             layout.clone(),
-            [
-                WriteDescriptorSet::buffer(0, image_buffer.clone()),
-                WriteDescriptorSet::buffer(1, params_buffer),
-            ],
+            [WriteDescriptorSet::buffer(0, image_buffer.clone())],
         )?;
 
         // Create the commands to render the image and copy it to the buffer.
@@ -232,6 +217,7 @@ impl Render for VulkanProgram {
             (params.image_size[1] + LOCAL_WORKGROUP_SIZES[1] - 1) / LOCAL_WORKGROUP_SIZES[1],
             1,
         ];
+        let layout = self.pipeline.layout();
         let mut builder = AutoCommandBufferBuilder::primary(
             &self.command_buffer_allocator,
             self.queue.queue_family_index(),
@@ -241,11 +227,12 @@ impl Render for VulkanProgram {
             .bind_pipeline_compute(self.pipeline.clone())
             .bind_descriptor_sets(
                 PipelineBindPoint::Compute,
-                self.pipeline.layout().clone(),
+                layout.clone(),
                 0,
                 descriptor_set,
             )
             .fill_buffer(image_buffer.clone(), 0)?
+            .push_constants(layout.clone(), 0, gl_params)
             .dispatch(task_dimensions)?;
         let command_buffer = builder.build()?;
 
