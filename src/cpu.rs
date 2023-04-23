@@ -195,10 +195,9 @@ mod dynamic {
 mod tests {
     use super::*;
 
-    #[allow(clippy::uninlined_format_args)] // FIXME: inline after switching to 2021 edition
     fn assert_close(x: Complex32, y: Complex32) {
-        assert!((x.re - y.re).abs() <= f32::EPSILON, "{:?}, {:?}", x, y);
-        assert!((x.im - y.im).abs() <= f32::EPSILON, "{:?}, {:?}", x, y);
+        assert!((x.re - y.re).abs() <= f32::EPSILON, "{x:?}, {y:?}");
+        assert!((x.im - y.im).abs() <= f32::EPSILON, "{x:?}, {y:?}");
     }
 
     #[test]

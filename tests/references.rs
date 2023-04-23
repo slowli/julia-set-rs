@@ -33,15 +33,13 @@ fn compare_to_reference(reference_filename: &str, image: &ImageBuffer) {
         Ok(DynamicImage::ImageLuma8(image)) => Some(image),
         Ok(_) => panic!("Unexpected image format"),
 
-        Err(ImageError::IoError(io_error)) if io_error.kind() == io::ErrorKind::NotFound => {
-            None
-        }
-        Err(other_error) => panic!("Error opening reference file: {:?}", other_error),
+        Err(ImageError::IoError(io_error)) if io_error.kind() == io::ErrorKind::NotFound => None,
+        Err(other_error) => panic!("Error opening reference file: {other_error:?}"),
     };
 
     if let Some(reference_image) = &reference_image {
         let image_diff = ImageDiff::new(reference_image, image);
-        println!("{}: {:?}", reference_filename, image_diff);
+        println!("{reference_filename}: {image_diff:?}");
         image_diff.assert_is_sound();
         return;
     } else if let Ok(snapshot_update) = env::var("SNAPSHOT_UPDATE") {
@@ -54,7 +52,7 @@ fn compare_to_reference(reference_filename: &str, image: &ImageBuffer) {
         }
     }
 
-    panic!("Snapshot `{}` not found", reference_filename);
+    panic!("Snapshot `{reference_filename}` not found");
 }
 
 #[derive(Debug)]
@@ -105,13 +103,11 @@ impl ImageDiff {
     fn assert_is_sound(&self) {
         assert!(
             self.differing_pixels <= Self::MAX_DIFFERING_PIXELS,
-            "{:?}",
-            self
+            "{self:?}"
         );
         assert!(
             self.mean_difference <= Self::MAX_MEAN_DIFFERENCE,
-            "{:?}",
-            self
+            "{self:?}"
         );
     }
 }

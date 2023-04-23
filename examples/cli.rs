@@ -70,7 +70,7 @@ impl Args {
     }
 
     fn run(self) -> anyhow::Result<()> {
-        println!("Running with {:?}", self);
+        println!("Running with {self:?}");
 
         let params = Params::new([self.size.width, self.size.height], self.view_height)
             .with_view_center([self.center_x, self.center_y])
@@ -227,7 +227,7 @@ impl FromStr for NamedLumaTransform {
         match s {
             "neg" | "negative" => Ok(Self::Negative),
             "smooth" | "smoothstep" => Ok(Self::Smoothstep),
-            _ => Err(anyhow!("Invalid transform: {}", s)),
+            _ => Err(anyhow!("Invalid transform: {s}")),
         }
     }
 }

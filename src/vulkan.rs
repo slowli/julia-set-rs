@@ -114,7 +114,7 @@ impl VulkanProgram {
         )?;
         let queue = queues
             .next()
-            .ok_or_else(|| anyhow!("cannot initialize compute queue on device {:?}", device))?;
+            .ok_or_else(|| anyhow!("cannot initialize compute queue on device {device:?}"))?;
 
         let shader = compile_shader(compiled_function)?;
         let shader = unsafe { ShaderModule::from_words(device.clone(), shader.as_binary())? };
