@@ -55,7 +55,7 @@ Ok::<_, anyhow::Error>(())
 
 See the crate docs for more examples of usage.
 
-### Installing Backend Dependencies
+### Installing backend dependencies
 
 Note that OpenCL and Vulkan backends require the corresponding platform installed
 in the execution environment. You may consult platform docs or [`ocl`] / [`vulkano`] crate
@@ -69,6 +69,34 @@ POCL [can be installed from sources](http://portablecl.org/docs/html/install.htm
 with the commands like in the [installation script](install-pocl.sh)
 (tested on Ubuntu 22.04).
 
+## Performance benchmarking
+
+The crate includes a [`criterion`] benchmark to estimate backend performance
+when rendering 640x360 images. You can run the benchmark with a command like
+
+```shell
+cargo bench --bench basics --all-features -- --noplot
+```
+
+(The set of `--features` may need to be adjusted depending on the available backends.)
+The performance may vary wildly depending on local setup, e.g. GPU characteristics.
+As a rough reference, a laptop NVIDIA GeForce RTX 3050 under Windows 11 measures as follows:
+
+```text
+opencl/compile_cubic    time:   [62.453 ms 62.717 ms 62.984 ms]
+cubic/opencl            time:   [451.47 µs 455.39 µs 460.28 µs]
+flower/opencl           time:   [11.236 ms 11.261 ms 11.293 ms]
+hills/opencl            time:   [12.379 ms 12.402 ms 12.449 ms]
+
+vulkan/compile_cubic    time:   [207.61 ms 209.36 ms 211.26 ms]
+cubic/vulkan            time:   [418.51 µs 424.09 µs 433.24 µs]
+flower/vulkan           time:   [700.95 µs 707.08 µs 720.54 µs]
+hills/vulkan            time:   [586.13 µs 595.31 µs 607.83 µs]
+```
+
+That is, the vast majority of time is spent on shader compilation, and rendering an image
+takes less than 1ms in Vulkan and about 10ms in OpenCL.
+
 ## License
 
 Licensed under the [Apache-2.0 license](LICENSE).
@@ -78,3 +106,4 @@ Licensed under the [Apache-2.0 license](LICENSE).
 [Vulkan]: https://www.khronos.org/vulkan/
 [`ocl`]: https://crates.io/crates/ocl
 [`vulkano`]: https://crates.io/crates/vulkano
+[`criterion`]: https://crates.io/crates/criterion

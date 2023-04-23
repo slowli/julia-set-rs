@@ -1,6 +1,6 @@
 //! Benchmarks for parsing, compiling and rendering Julia sets on all supported backends.
 
-use criterion::{criterion_group, criterion_main, Bencher, Benchmark, Criterion};
+use criterion::{criterion_group, criterion_main, Bencher, Criterion};
 use num_complex::Complex32;
 
 use std::fmt;
@@ -98,24 +98,22 @@ fn parse_benches(criterion: &mut Criterion) {
 
 fn compile_benches(criterion: &mut Criterion) {
     #[cfg(feature = "opencl_backend")]
-    criterion.bench(
-        "compile_cubic",
-        Benchmark::new("opencl", |bencher| {
+    criterion
+        .benchmark_group("opencl")
+        .bench_function("compile_cubic", |bencher| {
             let function: Function = "z * z * z - 0.39".parse::<Function>().unwrap();
             bencher.iter(|| julia_set::OpenCl.create_program(&function).unwrap());
         })
-        .sample_size(SAMPLE_SIZE),
-    );
+        .sample_size(SAMPLE_SIZE);
 
     #[cfg(feature = "vulkan_backend")]
-    criterion.bench(
-        "compile_cubic",
-        Benchmark::new("vulkan", |bencher| {
+    criterion
+        .benchmark_group("vulkan")
+        .bench_function("compile_cubic", |bencher| {
             let function: Function = "z * z * z - 0.39".parse::<Function>().unwrap();
             bencher.iter(|| julia_set::Vulkan.create_program(&function).unwrap());
         })
-        .sample_size(SAMPLE_SIZE),
-    );
+        .sample_size(SAMPLE_SIZE);
 }
 
 fn bench_function(
