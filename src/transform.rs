@@ -9,7 +9,6 @@
 //!
 //! # Examples
 //!
-//!
 //! ```
 //! # use image::GrayImage;
 //! use julia_set::transform::{ApplyTransform, Negative, Smoothstep};
@@ -142,8 +141,10 @@ where
             "palette cannot contain more than 256 colors"
         );
         let len_scale = (colors.len() - 1) as f32;
+        let zero_slice = [0_u8; 4];
+        let zero_slice = &zero_slice[..T::CHANNEL_COUNT as usize];
 
-        let mut pixels = [T::from_channels(0, 0, 0, 0); 256];
+        let mut pixels = [*T::from_slice(zero_slice); 256];
         for (i, pixel) in pixels.iter_mut().enumerate() {
             let float_i = i as f32 / 255.0 * len_scale;
 
