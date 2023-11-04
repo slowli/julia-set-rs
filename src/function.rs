@@ -244,11 +244,11 @@ impl ops::Neg for Evaluated {
 }
 
 impl FnError {
-    fn parse(source: &arithmetic_parser::Error<'_>) -> Self {
-        let column = source.span().get_column();
+    fn parse(source: &arithmetic_parser::Error, s: &str) -> Self {
+        let column = source.location().get_column();
         Self {
-            fragment: (*source.span().fragment()).to_owned(),
-            line: source.span().location_line(),
+            fragment: source.location().span(s).to_owned(),
+            line: source.location().location_line(),
             column,
             source: ErrorSource::Parse(source.kind().to_string()),
         }
@@ -290,7 +290,7 @@ type FnGrammarBase = Untyped<NumGrammar<Complex32>>;
 #[derive(Debug, Clone, Copy)]
 struct FnGrammar;
 
-impl Parse<'_> for FnGrammar {
+impl Parse for FnGrammar {
     type Base = FnGrammarBase;
     const FEATURES: Features = Features::empty();
 }
@@ -466,7 +466,7 @@ impl FromStr for Function {
     type Err = FnError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let statements = FnGrammar::parse_statements(s).map_err(|e| FnError::parse(&e))?;
+        let statements = FnGrammar::parse_statements(s).map_err(|err| FnError::parse(&err, s))?;
         let body_span = Spanned::from_str(s, ..);
         Context::new("z").process(&statements, body_span)
     }
