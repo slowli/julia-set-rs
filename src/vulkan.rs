@@ -1,6 +1,6 @@
 //! GLSL / Vulkan backend for Julia sets.
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context as _};
 use shaderc::{CompilationArtifact, CompileOptions, OptimizationLevel, ShaderKind};
 use vulkano::{
     buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage},
@@ -9,17 +9,22 @@ use vulkano::{
         AutoCommandBufferBuilder, CommandBufferUsage,
     },
     descriptor_set::{
-        allocator::StandardDescriptorSetAllocator, PersistentDescriptorSet, WriteDescriptorSet,
+        allocator::{StandardDescriptorSetAllocator, StandardDescriptorSetAllocatorCreateInfo},
+        PersistentDescriptorSet, WriteDescriptorSet,
     },
     device::{
         physical::{PhysicalDevice, PhysicalDeviceType},
         Device, DeviceCreateInfo, DeviceExtensions, Queue, QueueCreateInfo, QueueFlags,
     },
     instance::Instance,
-    instance::InstanceCreateInfo,
-    memory::allocator::{AllocationCreateInfo, MemoryUsage, StandardMemoryAllocator},
-    pipeline::{ComputePipeline, Pipeline, PipelineBindPoint},
-    shader::ShaderModule,
+    instance::{InstanceCreateFlags, InstanceCreateInfo},
+    memory::allocator::{AllocationCreateInfo, MemoryTypeFilter, StandardMemoryAllocator},
+    pipeline::{
+        compute::ComputePipelineCreateInfo, layout::PipelineDescriptorSetLayoutCreateInfo,
+        ComputePipeline, Pipeline, PipelineBindPoint, PipelineLayout,
+        PipelineShaderStageCreateInfo,
+    },
+    shader::{ShaderModule, ShaderModuleCreateInfo},
     sync::{self, GpuFuture},
     VulkanLibrary,
 };
@@ -84,7 +89,7 @@ pub struct VulkanProgram {
     device: Arc<Device>,
     queue: Arc<Queue>,
     pipeline: Arc<ComputePipeline>,
-    memory_allocator: StandardMemoryAllocator,
+    memory_allocator: Arc<StandardMemoryAllocator>,
     descriptor_set_allocator: StandardDescriptorSetAllocator,
     command_buffer_allocator: StandardCommandBufferAllocator,
 }
@@ -93,7 +98,7 @@ impl VulkanProgram {
     fn new(compiled_function: &str) -> anyhow::Result<Self> {
         let library = VulkanLibrary::new()?;
         let create_info = InstanceCreateInfo {
-            enumerate_portability: true,
+            flags: InstanceCreateFlags::ENUMERATE_PORTABILITY,
             ..InstanceCreateInfo::default()
         };
         let instance = Instance::new(library, create_info)?;
@@ -117,17 +122,31 @@ impl VulkanProgram {
         )?;
         let queue = queues
             .next()
-            .ok_or_else(|| anyhow!("cannot initialize compute queue on device {device:?}"))?;
+            .with_context(|| format!("cannot initialize compute queue on device {device:?}"))?;
 
         let shader = compile_shader(compiled_function)?;
-        let shader = unsafe { ShaderModule::from_words(device.clone(), shader.as_binary())? };
+        let create_info = ShaderModuleCreateInfo::new(shader.as_binary());
+        let shader = unsafe { ShaderModule::new(device.clone(), create_info)? };
         let entry_point = shader
             .entry_point("main")
-            .ok_or_else(|| anyhow!("cannot find entry point `main` in Julia set compute shader"))?;
+            .context("cannot find entry point `main` in Julia set compute shader")?;
 
-        let pipeline = ComputePipeline::new(device.clone(), entry_point, &(), None, |_| {})?;
-        let memory_allocator = StandardMemoryAllocator::new_default(device.clone());
-        let descriptor_set_allocator = StandardDescriptorSetAllocator::new(device.clone());
+        let stage = PipelineShaderStageCreateInfo::new(entry_point);
+        let layout = PipelineLayout::new(
+            device.clone(),
+            PipelineDescriptorSetLayoutCreateInfo::from_stages([&stage])
+                .into_pipeline_layout_create_info(device.clone())
+                .context("cannot create compute pipeline layout")?,
+        )
+        .context("failed validating pipeline layout")?;
+
+        let create_info = ComputePipelineCreateInfo::stage_layout(stage, layout);
+        let pipeline = ComputePipeline::new(device.clone(), None, create_info)?;
+        let memory_allocator = Arc::new(StandardMemoryAllocator::new_default(device.clone()));
+        let descriptor_set_allocator = StandardDescriptorSetAllocator::new(
+            device.clone(),
+            StandardDescriptorSetAllocatorCreateInfo::default(),
+        );
         let command_buffer_allocator = StandardCommandBufferAllocator::new(
             device.clone(),
             StandardCommandBufferAllocatorCreateInfo::default(),
@@ -183,13 +202,14 @@ impl Render for VulkanProgram {
         // Bind uniforms: the output image buffer and the rendering params.
         let pixel_count = (params.image_size[0] * params.image_size[1]) as usize;
         let image_buffer = Buffer::new_slice::<u32>(
-            &self.memory_allocator,
+            self.memory_allocator.clone(),
             BufferCreateInfo {
                 usage: BufferUsage::STORAGE_BUFFER | BufferUsage::TRANSFER_DST,
                 ..BufferCreateInfo::default()
             },
             AllocationCreateInfo {
-                usage: MemoryUsage::Download,
+                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
+                    | MemoryTypeFilter::HOST_RANDOM_ACCESS,
                 ..AllocationCreateInfo::default()
             },
             pixel_count as u64,
@@ -209,6 +229,7 @@ impl Render for VulkanProgram {
             &self.descriptor_set_allocator,
             layout.clone(),
             [WriteDescriptorSet::buffer(0, image_buffer.clone())],
+            [],
         )?;
 
         // Create the commands to render the image and copy it to the buffer.
@@ -225,14 +246,17 @@ impl Render for VulkanProgram {
         )?;
         builder
             .bind_pipeline_compute(self.pipeline.clone())
+            .context("failed binding compute pipeline to command buffer")?
             .bind_descriptor_sets(
                 PipelineBindPoint::Compute,
                 layout.clone(),
                 0,
                 descriptor_set,
             )
+            .context("failed binding descriptor sets to command buffer")?
             .fill_buffer(image_buffer.clone(), 0)?
             .push_constants(layout.clone(), 0, gl_params)
+            .context("failed pushing constants to command buffer")?
             .dispatch(task_dimensions)?;
         let command_buffer = builder.build()?;
 
