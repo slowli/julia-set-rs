@@ -8,7 +8,7 @@ on:
 
 env:
   # Minimum supported Rust version.
-  msrv: 1.65.0
+  msrv: 1.70.0
   # Nightly Rust toolchain for building docs.
   nightly: nightly-2022-11-24
   # POCL version (see at https://github.com/pocl/pocl)
@@ -41,11 +41,11 @@ jobs:
           key: ${{ runner.os }}-msrv-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-msrv-cargo
 
-      - name: Run tests
+      - name: Build library
         uses: actions-rs/cargo@v1
         with:
-          command: test
-          args: --features dyn_cpu_backend
+          command: build
+          args: --lib --all-features
 
   build:
     runs-on: ubuntu-22.04
@@ -104,7 +104,7 @@ jobs:
         with:
           command: test
           args: --features dyn_cpu_backend,opencl_backend --all-targets
-          # FIXME: Is it possible to get Vulkan working in CI?
+          # TODO: Is it possible to get Vulkan working in CI?
       - name: Run doc tests
         uses: actions-rs/cargo@v1
         with:

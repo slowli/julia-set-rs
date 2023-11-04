@@ -476,12 +476,12 @@ impl FromStr for Function {
 mod tests {
     use super::*;
 
-    fn z_square() -> Box<Evaluated> {
-        Box::new(Evaluated::Binary {
+    fn z_square() -> Evaluated {
+        Evaluated::Binary {
             op: BinaryOp::Mul,
             lhs: Box::new(Evaluated::Variable("z".to_owned())),
             rhs: Box::new(Evaluated::Variable("z".to_owned())),
-        })
+        }
     }
 
     #[test]
@@ -489,7 +489,7 @@ mod tests {
         let function: Function = "z*z + (0.77 - 0.2i)".parse().unwrap();
         let expected_expr = Evaluated::Binary {
             op: BinaryOp::Add,
-            lhs: z_square(),
+            lhs: Box::new(z_square()),
             rhs: Box::new(Evaluated::Value(Complex32::new(0.77, -0.2))),
         };
         assert_eq!(function.assignments, vec![(String::new(), expected_expr)]);
@@ -518,7 +518,7 @@ mod tests {
             lhs: Box::new(Evaluated::Binary {
                 op: BinaryOp::Sub,
                 lhs: Box::new(Evaluated::Variable("z".to_owned())),
-                rhs: z_square(),
+                rhs: Box::new(z_square()),
             }),
             rhs: Box::new(Evaluated::Value(Complex32::new(0.1, 0.3))),
         };
@@ -562,7 +562,7 @@ mod tests {
         let function: Function = "c = 0.5 - 0.2i; z*z + c".parse().unwrap();
         let expected_expr = Evaluated::Binary {
             op: BinaryOp::Add,
-            lhs: z_square(),
+            lhs: Box::new(z_square()),
             rhs: Box::new(Evaluated::Variable("c".to_owned())),
         };
 
