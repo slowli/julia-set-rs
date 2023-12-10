@@ -29,7 +29,7 @@ thiserror = "1.0.14"
 ocl = { version = "0.19.6", optional = true }
 lazy_static = { version = "1.4.0", optional = true }
 # Vulkan backend
-shaderc = { version = "0.8.2", optional = true }
+shaderc = { version = "0.8.3", optional = true }
 vulkano = { version = "0.34.1", optional = true }
 # CPU backend
 rayon = { version = "1.5.0", optional = true }
@@ -42,7 +42,7 @@ features = ["num-complex"]
 optional = true
 
 [dev-dependencies]
-clap = { version = "4.4.8", features = ["derive"] }
+clap = { version = "4.4.11", features = ["derive"] }
 criterion = "0.5.0"
 doc-comment = "0.3.3"
 version-sync = "0.9.1"
