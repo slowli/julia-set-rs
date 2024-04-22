@@ -23,7 +23,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 anyhow = "1.0.82"
 image = { version = "0.25.1", default-features = false, features = ["png", "jpeg"] }
 num-complex = "0.4.5"
-thiserror = "1.0.58"
+thiserror = "1.0.59"
 
 # OpenCL backend
 ocl = { version = "0.19.7", optional = true }
