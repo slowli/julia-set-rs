@@ -82,7 +82,7 @@ impl PixelTransform<Luma<u8>> for Negative {
 
     #[inline]
     fn transform_pixel(&self, pixel: Luma<u8>) -> Self::Output {
-        Luma([u8::max_value() - pixel[0]])
+        Luma([u8::MAX - pixel[0]])
     }
 }
 
