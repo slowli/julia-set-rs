@@ -12,12 +12,12 @@
 //!
 //! 1. For each complex value `z` within a rectangular area, perform steps 2-3.
 //! 2. Compute the minimum iteration `0 < i <= MAX_I` such that `|f(f(f(...(z)))| > R`.
-//!   Here, `f` is applied `i` times; `R` is a positive real-valued constant
-//!   (the *infinity distance*); `MAX_I` is a positive integer constant (maximum iteration count).
+//!    Here, `f` is applied `i` times; `R` is a positive real-valued constant
+//!    (the *infinity distance*); `MAX_I` is a positive integer constant (maximum iteration count).
 //! 3. Associate `z` with a color depending on `i`. For example, `i == 1` may be rendered as black,
-//!   `i == MAX_I` as white, and values between it may get the corresponding shades of gray.
+//!    `i == MAX_I` as white, and values between it may get the corresponding shades of gray.
 //! 4. Render the rectangular area as a (two-dimensional) image, with each pixel corresponding
-//!   to a separate value of `z`.
+//!    to a separate value of `z`.
 //!
 //! This is exactly the way Julia set rendering is implemented in this crate.
 //!
