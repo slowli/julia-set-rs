@@ -20,10 +20,10 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
-anyhow = "1.0.86"
+anyhow = "1.0.89"
 image = { version = "0.25.2", default-features = false, features = ["png", "jpeg"] }
 num-complex = "0.4.6"
-thiserror = "1.0.63"
+thiserror = "1.0.64"
 
 # OpenCL backend
 ocl = { version = "0.19.7", optional = true }
@@ -42,7 +42,7 @@ features = ["num-complex"]
 optional = true
 
 [dev-dependencies]
-clap = { version = "4.5.13", features = ["derive"] }
+clap = { version = "4.5.20", features = ["derive"] }
 criterion = "0.5.0"
 doc-comment = "0.3.3"
 version-sync = "0.9.1"
