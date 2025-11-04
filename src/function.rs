@@ -1,11 +1,11 @@
+use std::{collections::HashSet, error::Error, fmt, iter, mem, ops, str::FromStr};
+
 use arithmetic_parser::{
-    grammars::{Features, NumGrammar, Parse, Untyped},
     BinaryOp, Block, Expr, Lvalue, Spanned, SpannedExpr, Statement, UnaryOp,
+    grammars::{Features, NumGrammar, Parse, Untyped},
 };
 use num_complex::Complex32;
 use thiserror::Error;
-
-use std::{collections::HashSet, error::Error, fmt, iter, mem, ops, str::FromStr};
 
 /// Error associated with creating a [`Function`].
 #[derive(Debug)]

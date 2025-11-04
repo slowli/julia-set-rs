@@ -1,8 +1,8 @@
 [package]
 name = "julia-set"
 version = "0.1.0"
-edition = "2021"
-rust-version = "1.70.0"
+edition = "2024"
+rust-version = "1.85.0"
 authors = ["Alex Ostrovski <ostrovski.alex@gmail.com>"]
 readme = "README.md"
 license = "MIT OR Apache-2.0"
@@ -20,31 +20,25 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
-anyhow = "1.0.89"
-image = { version = "0.25.2", default-features = false, features = ["png", "jpeg"] }
+anyhow = "1.0.100"
+image = { version = "0.25.8", default-features = false, features = ["png", "jpeg"] }
 num-complex = "0.4.6"
-thiserror = "1.0.64"
+thiserror = "1.0.69"
 
 # OpenCL backend
 ocl = { version = "0.19.7", optional = true }
-lazy_static = { version = "1.5.0", optional = true }
 # Vulkan backend
-shaderc = { version = "0.8.3", optional = true }
-vulkano = { version = "0.34.1", optional = true }
+shaderc = { version = "0.10.1", optional = true }
+vulkano = { version = "0.35.2", optional = true }
 # CPU backend
-rayon = { version = "1.10.0", optional = true }
+rayon = { version = "1.11.0", optional = true }
 
-[dependencies.arithmetic-parser]
-version = "0.3.0"
-git = "https://github.com/slowli/arithmetic-parser.git"
-rev = "b03e8cf6945f2ad2cc2d95a2f0fbf1651ef8e53b"
-features = ["num-complex"]
-optional = true
+arithmetic-parser = { version = "=0.4.0-beta.1", features = ["num-complex"], optional = true }
 
 [dev-dependencies]
-clap = { version = "4.5.20", features = ["derive"] }
-criterion = "0.5.0"
-doc-comment = "0.3.3"
+clap = { version = "4.5.51", features = ["derive"] }
+criterion = "0.7.0"
+doc-comment = "0.3.4"
 version-sync = "0.9.1"
 
 [features]
@@ -52,7 +46,7 @@ default = []
 # Enables the Vulkan backend (GPU-based).
 vulkan_backend = ["arithmetic-parser", "shaderc", "vulkano"]
 # Enables the OpenCL backend (GPU-based).
-opencl_backend = ["arithmetic-parser", "ocl", "lazy_static"]
+opencl_backend = ["arithmetic-parser", "ocl"]
 # Enables the CPU backend with native functions.
 cpu_backend = ["rayon"]
 # Enables the CPU backend with support of dynamically defined functions.

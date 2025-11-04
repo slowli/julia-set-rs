@@ -1,11 +1,10 @@
 //! Benchmarks for parsing, compiling and rendering Julia sets on all supported backends.
 
-use criterion::{criterion_group, criterion_main, Bencher, Criterion};
-use num_complex::Complex32;
-
 use std::fmt;
 
+use criterion::{Bencher, Criterion, criterion_group, criterion_main};
 use julia_set::{Backend, Cpu, Function, Params, Render};
+use num_complex::Complex32;
 
 const SAMPLE_SIZE: usize = 10;
 const IMAGE_SIZE: [u32; 2] = [640, 360];

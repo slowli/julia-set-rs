@@ -1,9 +1,9 @@
 //! CPU backend for Julia set rendering.
 
+use std::convert::Infallible;
+
 use num_complex::Complex32;
 use rayon::prelude::*;
-
-use std::convert::Infallible;
 
 use crate::{Backend, ImageBuffer, Params, Render};
 
@@ -136,13 +136,13 @@ impl<F: ComputePoint> Render for CpuProgram<F> {
 
 #[cfg(feature = "dyn_cpu_backend")]
 mod dynamic {
+    use std::{collections::HashMap, convert::Infallible};
+
     use arithmetic_parser::BinaryOp;
     use num_complex::Complex32;
 
-    use std::{collections::HashMap, convert::Infallible};
-
     use super::{ComputePoint, Cpu, CpuProgram};
-    use crate::{function::Evaluated, Backend, Function};
+    use crate::{Backend, Function, function::Evaluated};
 
     impl Backend<&Function> for Cpu {
         type Error = Infallible;

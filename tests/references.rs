@@ -6,10 +6,9 @@
 //! SNAPSHOT_UPDATE=1 cargo run test --test references --features cpu_backend
 //! ```
 
-use image::{DynamicImage, ImageError};
-
 use std::{env, io, path::Path};
 
+use image::{DynamicImage, ImageError};
 use julia_set::{Backend, ImageBuffer, Params, Render};
 
 const IMAGE_SIZE: [u32; 2] = [360, 360];
@@ -80,12 +79,7 @@ impl ImageDiff {
         let mut total_diff = 0_u32;
 
         for (expected_pixel, actual_pixel) in expected.pixels().zip(actual.pixels()) {
-            let diff = if expected_pixel[0] > actual_pixel[0] {
-                expected_pixel[0] - actual_pixel[0]
-            } else {
-                actual_pixel[0] - expected_pixel[0]
-            };
-
+            let diff = expected_pixel[0].abs_diff(actual_pixel[0]);
             if diff > 0 {
                 differing_count += 1;
                 total_diff += diff as u32;
@@ -160,8 +154,9 @@ mod cubic {
 }
 
 mod exp {
-    use super::*;
     use num_complex::Complex32;
+
+    use super::*;
 
     #[cfg(any(
         feature = "dyn_cpu_backend",
@@ -211,8 +206,9 @@ mod exp {
 }
 
 mod flower {
-    use super::*;
     use num_complex::Complex32;
+
+    use super::*;
 
     #[cfg(any(
         feature = "dyn_cpu_backend",
@@ -262,8 +258,9 @@ mod flower {
 }
 
 mod hills {
-    use super::*;
     use num_complex::Complex32;
+
+    use super::*;
 
     #[cfg(any(
         feature = "dyn_cpu_backend",
@@ -320,8 +317,9 @@ mod hills {
 }
 
 mod spiral {
-    use super::*;
     use num_complex::Complex32;
+
+    use super::*;
 
     #[cfg(any(
         feature = "dyn_cpu_backend",
