@@ -1,9 +1,9 @@
+use std::sync::{LazyLock, Mutex};
+
 use ocl::{
     Buffer, Context, Device, OclPrm, Platform, ProQue, Queue, builders::BuildOpt, flags,
     prm::Float2,
 };
-
-use std::sync::{LazyLock, Mutex};
 
 use crate::{Backend, Function, ImageBuffer, Params, Render, compiler::Compiler};
 

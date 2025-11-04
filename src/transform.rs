@@ -18,9 +18,9 @@
 //! let transformed_image = image.apply(Negative).apply(Smoothstep).transform();
 //! ```
 
-use image::{ImageBuffer, Luma, Pixel};
-
 use std::fmt;
+
+use image::{ImageBuffer, Luma, Pixel};
 
 /// Pixel-wise transform.
 ///
@@ -263,8 +263,9 @@ where
     clippy::cast_sign_loss
 )]
 mod tests {
-    use super::*;
     use image::{GrayImage, Rgb};
+
+    use super::*;
 
     #[test]
     fn simple_transform() {

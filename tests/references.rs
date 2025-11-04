@@ -6,10 +6,9 @@
 //! SNAPSHOT_UPDATE=1 cargo run test --test references --features cpu_backend
 //! ```
 
-use image::{DynamicImage, ImageError};
-
 use std::{env, io, path::Path};
 
+use image::{DynamicImage, ImageError};
 use julia_set::{Backend, ImageBuffer, Params, Render};
 
 const IMAGE_SIZE: [u32; 2] = [360, 360];
@@ -155,8 +154,9 @@ mod cubic {
 }
 
 mod exp {
-    use super::*;
     use num_complex::Complex32;
+
+    use super::*;
 
     #[cfg(any(
         feature = "dyn_cpu_backend",
@@ -206,8 +206,9 @@ mod exp {
 }
 
 mod flower {
-    use super::*;
     use num_complex::Complex32;
+
+    use super::*;
 
     #[cfg(any(
         feature = "dyn_cpu_backend",
@@ -257,8 +258,9 @@ mod flower {
 }
 
 mod hills {
-    use super::*;
     use num_complex::Complex32;
+
+    use super::*;
 
     #[cfg(any(
         feature = "dyn_cpu_backend",
@@ -315,8 +317,9 @@ mod hills {
 }
 
 mod spiral {
-    use super::*;
     use num_complex::Complex32;
+
+    use super::*;
 
     #[cfg(any(
         feature = "dyn_cpu_backend",

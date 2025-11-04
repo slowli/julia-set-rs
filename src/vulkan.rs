@@ -1,5 +1,7 @@
 //! GLSL / Vulkan backend for Julia sets.
 
+use std::{slice, sync::Arc};
+
 use anyhow::{Context as _, anyhow};
 use shaderc::{CompilationArtifact, CompileOptions, OptimizationLevel, ShaderKind};
 use vulkano::{
@@ -17,8 +19,7 @@ use vulkano::{
         Device, DeviceCreateInfo, DeviceExtensions, Queue, QueueCreateInfo, QueueFlags,
         physical::{PhysicalDevice, PhysicalDeviceType},
     },
-    instance::Instance,
-    instance::{InstanceCreateFlags, InstanceCreateInfo},
+    instance::{Instance, InstanceCreateFlags, InstanceCreateInfo},
     memory::allocator::{AllocationCreateInfo, MemoryTypeFilter, StandardMemoryAllocator},
     pipeline::{
         ComputePipeline, Pipeline, PipelineBindPoint, PipelineLayout,
@@ -28,8 +29,6 @@ use vulkano::{
     shader::{ShaderModule, ShaderModuleCreateInfo},
     sync::{self, GpuFuture},
 };
-
-use std::{slice, sync::Arc};
 
 use crate::{Backend, Function, ImageBuffer, Params, Render, compiler::Compiler};
 
