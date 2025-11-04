@@ -45,13 +45,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install packages for Vulkan
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-suggests --no-install-recommends \
-            cmake libvulkan-dev vulkan-tools mesa-vulkan-drivers
-          vulkaninfo
-
       - name: Cache POCL binaries
         uses: actions/cache@v4
         with:
@@ -62,6 +55,12 @@ jobs:
           POCL_VER=${{ env.pocl }} \
           LLVM_VER=${{ env.llvm }} \
           CMAKE_FLAGS=-DLLC_HOST_CPU=x86-64 ./install-pocl.sh
+      - name: Install packages for Vulkan
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-suggests --no-install-recommends \
+            cmake libvulkan-dev vulkan-tools mesa-vulkan-drivers libxcb1-dev
+          vulkaninfo
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@master
