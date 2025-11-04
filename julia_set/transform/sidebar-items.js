@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["ImageAndTransform","Negative","Palette","Smoothstep"],"trait":["ApplyTransform","PixelTransform"]};

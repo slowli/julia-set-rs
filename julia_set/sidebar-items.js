@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["transform"],"struct":["Cpu","CpuProgram","FnError","Function","OpenCl","OpenClProgram","Params","Vulkan","VulkanProgram"],"trait":["Backend","ComputePoint","Render"],"type":["ImageBuffer"]};
