@@ -13,7 +13,8 @@ allow = [
   "MIT",
   "Apache-2.0",
   "ISC",
-  "Unicode-DFS-2016",
+  "Zlib",
+  "Unicode-3.0",
 ]
 confidence-threshold = 0.8
 
@@ -24,17 +25,10 @@ allow-wildcard-paths = true
 skip = [
   # Old version used by many crates. Since its mostly codegen, it's mostly OK.
   { name = "bitflags", version = "^1" },
-  # Old version used (together with 0.8) by `vulkano`
-  { name = "libloading", version = "^0.7" },
   # Old version used by `ocl` via `enum_primitive` (together with v0.2 used directly)
   { name = "num-traits", version = "^0.1" },
-  # Old version is still used by some crates
-  { name = "syn", version = "^1" },
 ]
 
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
-allow-git = [
-  "https://github.com/slowli/arithmetic-parser.git",
-]

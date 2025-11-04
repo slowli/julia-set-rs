@@ -23,7 +23,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 anyhow = "1.0.100"
 image = { version = "0.25.8", default-features = false, features = ["png", "jpeg"] }
 num-complex = "0.4.6"
-thiserror = "2.0.17"
+thiserror = "1.0.69"
 
 # OpenCL backend
 ocl = { version = "0.19.7", optional = true }
@@ -34,12 +34,7 @@ vulkano = { version = "0.35.2", optional = true }
 # CPU backend
 rayon = { version = "1.11.0", optional = true }
 
-[dependencies.arithmetic-parser]
-version = "0.3.0"
-git = "https://github.com/slowli/arithmetic-parser.git"
-rev = "b03e8cf6945f2ad2cc2d95a2f0fbf1651ef8e53b"
-features = ["num-complex"]
-optional = true
+arithmetic-parser = { version = "=0.4.0-beta.1", features = ["num-complex"], optional = true }
 
 [dev-dependencies]
 clap = { version = "4.5.51", features = ["derive"] }
