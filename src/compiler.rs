@@ -1,5 +1,7 @@
 //! Code shared among backends.
 
+use std::fmt::Write as _;
+
 use arithmetic_parser::BinaryOp;
 
 use crate::{function::Evaluated, Function};
@@ -34,7 +36,8 @@ impl Compiler {
     pub fn compile(self, function: &Function) -> String {
         let mut code = String::new();
         for (var_name, value) in function.assignments() {
-            code += &format!("{} {VAR_PREFIX}{var_name} = ", self.complex_ty);
+            // Writing to a `String` always succeeds.
+            write!(&mut code, "{} {VAR_PREFIX}{var_name} = ", self.complex_ty).unwrap();
             self.compile_expr(&mut code, value);
             code += "; ";
         }

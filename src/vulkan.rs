@@ -10,7 +10,7 @@ use vulkano::{
     },
     descriptor_set::{
         allocator::{StandardDescriptorSetAllocator, StandardDescriptorSetAllocatorCreateInfo},
-        PersistentDescriptorSet, WriteDescriptorSet,
+        DescriptorSet, WriteDescriptorSet,
     },
     device::{
         physical::{PhysicalDevice, PhysicalDeviceType},
@@ -38,12 +38,8 @@ const PROGRAM: &str = include_str!(concat!(env!("OUT_DIR"), "/program.glsl"));
 const LOCAL_WORKGROUP_SIZES: [u32; 2] = [16, 16];
 
 fn compile_shader(function: &str) -> shaderc::Result<CompilationArtifact> {
-    let compiler = shaderc::Compiler::new().ok_or_else(|| {
-        shaderc::Error::NullResultObject("Cannot initialize `shaderc` compiler".to_owned())
-    })?;
-    let mut options = CompileOptions::new().ok_or_else(|| {
-        shaderc::Error::NullResultObject("Cannot initialize `shaderc` compiler options".to_owned())
-    })?;
+    let compiler = shaderc::Compiler::new()?;
+    let mut options = CompileOptions::new()?;
     options.add_macro_definition("COMPUTE", Some(function));
     options.set_optimization_level(OptimizationLevel::Performance);
     compiler.compile_into_spirv(
@@ -90,8 +86,8 @@ pub struct VulkanProgram {
     queue: Arc<Queue>,
     pipeline: Arc<ComputePipeline>,
     memory_allocator: Arc<StandardMemoryAllocator>,
-    descriptor_set_allocator: StandardDescriptorSetAllocator,
-    command_buffer_allocator: StandardCommandBufferAllocator,
+    descriptor_set_allocator: Arc<StandardDescriptorSetAllocator>,
+    command_buffer_allocator: Arc<StandardCommandBufferAllocator>,
 }
 
 impl VulkanProgram {
@@ -143,14 +139,14 @@ impl VulkanProgram {
         let create_info = ComputePipelineCreateInfo::stage_layout(stage, layout);
         let pipeline = ComputePipeline::new(device.clone(), None, create_info)?;
         let memory_allocator = Arc::new(StandardMemoryAllocator::new_default(device.clone()));
-        let descriptor_set_allocator = StandardDescriptorSetAllocator::new(
+        let descriptor_set_allocator = Arc::new(StandardDescriptorSetAllocator::new(
             device.clone(),
             StandardDescriptorSetAllocatorCreateInfo::default(),
-        );
-        let command_buffer_allocator = StandardCommandBufferAllocator::new(
+        ));
+        let command_buffer_allocator = Arc::new(StandardCommandBufferAllocator::new(
             device.clone(),
             StandardCommandBufferAllocatorCreateInfo::default(),
-        );
+        ));
 
         Ok(Self {
             device,
@@ -225,8 +221,8 @@ impl Render for VulkanProgram {
 
         let layout = self.pipeline.layout();
         let layout = &layout.set_layouts()[0];
-        let descriptor_set = PersistentDescriptorSet::new(
-            &self.descriptor_set_allocator,
+        let descriptor_set = DescriptorSet::new(
+            self.descriptor_set_allocator.clone(),
             layout.clone(),
             [WriteDescriptorSet::buffer(0, image_buffer.clone())],
             [],
@@ -234,13 +230,13 @@ impl Render for VulkanProgram {
 
         // Create the commands to render the image and copy it to the buffer.
         let task_dimensions = [
-            (params.image_size[0] + LOCAL_WORKGROUP_SIZES[0] - 1) / LOCAL_WORKGROUP_SIZES[0],
-            (params.image_size[1] + LOCAL_WORKGROUP_SIZES[1] - 1) / LOCAL_WORKGROUP_SIZES[1],
+            params.image_size[0].div_ceil(LOCAL_WORKGROUP_SIZES[0]),
+            params.image_size[1].div_ceil(LOCAL_WORKGROUP_SIZES[1]),
             1,
         ];
         let layout = self.pipeline.layout();
         let mut builder = AutoCommandBufferBuilder::primary(
-            &self.command_buffer_allocator,
+            self.command_buffer_allocator.clone(),
             self.queue.queue_family_index(),
             CommandBufferUsage::OneTimeSubmit,
         )?;
@@ -256,8 +252,10 @@ impl Render for VulkanProgram {
             .context("failed binding descriptor sets to command buffer")?
             .fill_buffer(image_buffer.clone(), 0)?
             .push_constants(layout.clone(), 0, gl_params)
-            .context("failed pushing constants to command buffer")?
-            .dispatch(task_dimensions)?;
+            .context("failed pushing constants to command buffer")?;
+        unsafe {
+            builder.dispatch(task_dimensions)?;
+        }
         let command_buffer = builder.build()?;
 
         sync::now(self.device.clone())

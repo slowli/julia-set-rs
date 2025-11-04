@@ -80,12 +80,7 @@ impl ImageDiff {
         let mut total_diff = 0_u32;
 
         for (expected_pixel, actual_pixel) in expected.pixels().zip(actual.pixels()) {
-            let diff = if expected_pixel[0] > actual_pixel[0] {
-                expected_pixel[0] - actual_pixel[0]
-            } else {
-                actual_pixel[0] - expected_pixel[0]
-            };
-
+            let diff = expected_pixel[0].abs_diff(actual_pixel[0]);
             if diff > 0 {
                 differing_count += 1;
                 total_diff += diff as u32;
