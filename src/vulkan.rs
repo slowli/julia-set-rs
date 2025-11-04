@@ -1,37 +1,37 @@
 //! GLSL / Vulkan backend for Julia sets.
 
-use anyhow::{anyhow, Context as _};
+use anyhow::{Context as _, anyhow};
 use shaderc::{CompilationArtifact, CompileOptions, OptimizationLevel, ShaderKind};
 use vulkano::{
+    VulkanLibrary,
     buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage},
     command_buffer::{
-        allocator::{StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo},
         AutoCommandBufferBuilder, CommandBufferUsage,
+        allocator::{StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo},
     },
     descriptor_set::{
-        allocator::{StandardDescriptorSetAllocator, StandardDescriptorSetAllocatorCreateInfo},
         DescriptorSet, WriteDescriptorSet,
+        allocator::{StandardDescriptorSetAllocator, StandardDescriptorSetAllocatorCreateInfo},
     },
     device::{
-        physical::{PhysicalDevice, PhysicalDeviceType},
         Device, DeviceCreateInfo, DeviceExtensions, Queue, QueueCreateInfo, QueueFlags,
+        physical::{PhysicalDevice, PhysicalDeviceType},
     },
     instance::Instance,
     instance::{InstanceCreateFlags, InstanceCreateInfo},
     memory::allocator::{AllocationCreateInfo, MemoryTypeFilter, StandardMemoryAllocator},
     pipeline::{
-        compute::ComputePipelineCreateInfo, layout::PipelineDescriptorSetLayoutCreateInfo,
         ComputePipeline, Pipeline, PipelineBindPoint, PipelineLayout,
-        PipelineShaderStageCreateInfo,
+        PipelineShaderStageCreateInfo, compute::ComputePipelineCreateInfo,
+        layout::PipelineDescriptorSetLayoutCreateInfo,
     },
     shader::{ShaderModule, ShaderModuleCreateInfo},
     sync::{self, GpuFuture},
-    VulkanLibrary,
 };
 
 use std::{slice, sync::Arc};
 
-use crate::{compiler::Compiler, Backend, Function, ImageBuffer, Params, Render};
+use crate::{Backend, Function, ImageBuffer, Params, Render, compiler::Compiler};
 
 const PROGRAM: &str = include_str!(concat!(env!("OUT_DIR"), "/program.glsl"));
 

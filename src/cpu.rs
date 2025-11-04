@@ -142,7 +142,7 @@ mod dynamic {
     use std::{collections::HashMap, convert::Infallible};
 
     use super::{ComputePoint, Cpu, CpuProgram};
-    use crate::{function::Evaluated, Backend, Function};
+    use crate::{Backend, Function, function::Evaluated};
 
     impl Backend<&Function> for Cpu {
         type Error = Infallible;

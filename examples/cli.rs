@@ -7,8 +7,8 @@ use image::{Luma, Rgb};
 use std::{path::PathBuf, str::FromStr};
 
 use julia_set::{
-    transform::{ApplyTransform, Negative, Palette, PixelTransform, Smoothstep},
     Backend, Function, ImageBuffer, Params, Render,
+    transform::{ApplyTransform, Negative, Palette, PixelTransform, Smoothstep},
 };
 
 type LumaTransform = dyn PixelTransform<Luma<u8>, Output = Luma<u8>>;

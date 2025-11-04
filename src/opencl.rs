@@ -1,12 +1,11 @@
-use lazy_static::lazy_static;
 use ocl::{
-    builders::BuildOpt, flags, prm::Float2, Buffer, Context, Device, OclPrm, Platform, ProQue,
-    Queue,
+    Buffer, Context, Device, OclPrm, Platform, ProQue, Queue, builders::BuildOpt, flags,
+    prm::Float2,
 };
 
-use std::sync::Mutex;
+use std::sync::{LazyLock, Mutex};
 
-use crate::{compiler::Compiler, Backend, Function, ImageBuffer, Params, Render};
+use crate::{Backend, Function, ImageBuffer, Params, Render, compiler::Compiler};
 
 const PROGRAM: &str = include_str!(concat!(env!("OUT_DIR"), "/program.cl"));
 
@@ -36,6 +35,11 @@ pub struct OpenClProgram {
 
 impl OpenClProgram {
     fn new(compiled: String) -> ocl::Result<Self> {
+        // For some reason, certain OpenCL implementations (e.g., POCL) do not work well
+        // when the list of devices for a platform is queried from multiple threads.
+        // Hence, we introduce a `Mutex` to serialize these calls.
+        static MUTEX: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+
         let mut program_builder = ocl::Program::builder();
         let define = BuildOpt::IncludeDefine {
             ident: "COMPUTE(z)".to_owned(),
@@ -43,12 +47,6 @@ impl OpenClProgram {
         };
         program_builder.bo(define).source(PROGRAM);
 
-        // For some reason, certain OpenCL implementations (e.g., POCL) do not work well
-        // when the list of devices for a platform is queried from multiple threads.
-        // Hence, we introduce a `Mutex` to serialize these calls.
-        lazy_static! {
-            static ref MUTEX: Mutex<()> = Mutex::new(());
-        }
         let (platform, device) = {
             let _lock = MUTEX.lock().ok();
             let platform = Platform::first()?;

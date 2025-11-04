@@ -4,7 +4,7 @@ use std::fmt::Write as _;
 
 use arithmetic_parser::BinaryOp;
 
-use crate::{function::Evaluated, Function};
+use crate::{Function, function::Evaluated};
 
 const COMPUTE_ARGUMENT: &str = "z";
 const VAR_PREFIX: &str = "__var_";

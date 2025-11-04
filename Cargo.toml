@@ -1,8 +1,8 @@
 [package]
 name = "julia-set"
 version = "0.1.0"
-edition = "2021"
-rust-version = "1.75.0"
+edition = "2024"
+rust-version = "1.85.0"
 authors = ["Alex Ostrovski <ostrovski.alex@gmail.com>"]
 readme = "README.md"
 license = "MIT OR Apache-2.0"
@@ -27,7 +27,6 @@ thiserror = "1.0.69"
 
 # OpenCL backend
 ocl = { version = "0.19.7", optional = true }
-lazy_static = { version = "1.5.0", optional = true }
 # Vulkan backend
 shaderc = { version = "0.10.1", optional = true }
 vulkano = { version = "0.35.2", optional = true }
@@ -47,7 +46,7 @@ default = []
 # Enables the Vulkan backend (GPU-based).
 vulkan_backend = ["arithmetic-parser", "shaderc", "vulkano"]
 # Enables the OpenCL backend (GPU-based).
-opencl_backend = ["arithmetic-parser", "ocl", "lazy_static"]
+opencl_backend = ["arithmetic-parser", "ocl"]
 # Enables the CPU backend with native functions.
 cpu_backend = ["rayon"]
 # Enables the CPU backend with support of dynamically defined functions.

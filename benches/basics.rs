@@ -1,6 +1,6 @@
 //! Benchmarks for parsing, compiling and rendering Julia sets on all supported backends.
 
-use criterion::{criterion_group, criterion_main, Bencher, Criterion};
+use criterion::{Bencher, Criterion, criterion_group, criterion_main};
 use num_complex::Complex32;
 
 use std::fmt;
